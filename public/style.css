@@ -335,7 +335,7 @@ body {
   background: rgba(102, 126, 234, 0.7);
 }
 
-/* 반응형 */
+/* 반응형 - 태블릿 */
 @media (max-width: 900px) {
   .main-content {
     flex-direction: column;
@@ -350,6 +350,163 @@ body {
   .resource-section {
     flex: 1;
     min-width: 250px;
+  }
+}
+
+/* 반응형 - 모바일 */
+@media (max-width: 600px) {
+  .container {
+    padding: 10px;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .header {
+    padding: 15px 0;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .main-content {
+    flex-direction: column;
+    gap: 15px;
+    overflow: visible;
+  }
+
+  .chat-panel {
+    padding: 15px;
+    border-radius: 12px;
+    min-height: 60vh;
+  }
+
+  .search-box {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .search-box input {
+    padding: 12px 15px;
+    font-size: 0.95rem;
+  }
+
+  .search-box button {
+    padding: 12px 20px;
+    width: 100%;
+  }
+
+  .chat-messages {
+    padding-right: 5px;
+  }
+
+  .welcome-message {
+    padding: 20px 10px;
+  }
+
+  .welcome-message p {
+    font-size: 0.9rem;
+  }
+
+  .message {
+    margin-bottom: 15px;
+  }
+
+  .message.assistant {
+    padding: 12px 15px;
+  }
+
+  .message.user {
+    padding: 12px 15px;
+    margin-left: 20px;
+  }
+
+  .message-content {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .chat-input-box {
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 15px;
+    margin-top: 15px;
+  }
+
+  .chat-input-box input {
+    padding: 12px 15px;
+  }
+
+  .chat-input-box button {
+    padding: 12px 20px;
+    width: 100%;
+  }
+
+  /* 리소스 패널 모바일 */
+  .resource-panel {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .resource-section {
+    min-width: 100%;
+    padding: 12px;
+  }
+
+  .resource-section h3 {
+    font-size: 0.85rem;
+  }
+
+  .video-card {
+    padding: 8px;
+  }
+
+  .video-thumbnail {
+    width: 70px;
+    height: 40px;
+  }
+
+  .video-title {
+    font-size: 0.75rem;
+  }
+
+  .article-card {
+    padding: 8px;
+  }
+
+  .article-title {
+    font-size: 0.8rem;
+  }
+
+  .mission-content {
+    font-size: 0.85rem;
+  }
+
+  /* PIN 모달 모바일 */
+  .pin-content {
+    padding: 30px 20px;
+    margin: 20px;
+    width: calc(100% - 40px);
+    max-width: 300px;
+  }
+
+  .pin-content h2 {
+    font-size: 1.2rem;
+  }
+
+  .pin-content input {
+    width: 100%;
+    font-size: 1rem;
+    padding: 12px;
+  }
+
+  .pin-content button {
+    width: 100%;
+    padding: 12px;
   }
 }
 
