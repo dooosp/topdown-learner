@@ -16,8 +16,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 세션 저장 (간단한 인메모리)
 const sessions = new Map();
 
+// PIN 인증 미들웨어
+const ACCESS_PIN = process.env.ACCESS_PIN || '1234';
+
+function checkAuth(req, res, next) {
+  const pin = req.headers['x-access-pin'] || req.body.pin;
+  if (pin !== ACCESS_PIN) {
+    return res.status(401).json({ error: '잘못된 비밀번호입니다' });
+  }
+  next();
+}
+
 // 학습 시작 API
-app.post('/api/learn', async (req, res) => {
+app.post('/api/learn', checkAuth, async (req, res) => {
   const { topic, sessionId } = req.body;
 
   if (!topic) {
@@ -71,7 +82,7 @@ app.post('/api/learn', async (req, res) => {
 });
 
 // 대화 API
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', checkAuth, async (req, res) => {
   const { message, sessionId } = req.body;
 
   if (!message) {

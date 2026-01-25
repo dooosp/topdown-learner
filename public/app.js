@@ -1,7 +1,14 @@
 // 세션 ID 생성
 const sessionId = 'session_' + Date.now();
 
+// PIN 저장
+let accessPin = localStorage.getItem('accessPin') || '';
+
 // DOM 요소
+const pinModal = document.getElementById('pinModal');
+const pinInput = document.getElementById('pinInput');
+const pinSubmit = document.getElementById('pinSubmit');
+const pinError = document.getElementById('pinError');
 const topicInput = document.getElementById('topicInput');
 const startBtn = document.getElementById('startBtn');
 const chatMessages = document.getElementById('chatMessages');
@@ -12,6 +19,44 @@ const videoList = document.getElementById('videoList');
 const articleList = document.getElementById('articleList');
 const missionSection = document.getElementById('missionSection');
 const missionContent = document.getElementById('missionContent');
+
+// PIN 검증
+if (accessPin) {
+  pinModal.classList.add('hidden');
+}
+
+pinSubmit.addEventListener('click', verifyPin);
+pinInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') verifyPin();
+});
+
+async function verifyPin() {
+  const pin = pinInput.value.trim();
+  if (!pin) return;
+
+  try {
+    const response = await fetch('/api/learn', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': pin
+      },
+      body: JSON.stringify({ topic: 'test', sessionId: 'verify' })
+    });
+
+    if (response.status === 401) {
+      pinError.textContent = '잘못된 비밀번호입니다';
+      return;
+    }
+
+    // 성공
+    accessPin = pin;
+    localStorage.setItem('accessPin', pin);
+    pinModal.classList.add('hidden');
+  } catch (error) {
+    pinError.textContent = '연결 오류가 발생했습니다';
+  }
+}
 
 // 학습 시작
 startBtn.addEventListener('click', startLearning);
@@ -34,11 +79,20 @@ async function startLearning() {
   try {
     const response = await fetch('/api/learn', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
       body: JSON.stringify({ topic, sessionId })
     });
 
     const data = await response.json();
+
+    if (response.status === 401) {
+      localStorage.removeItem('accessPin');
+      location.reload();
+      return;
+    }
 
     if (!response.ok) throw new Error(data.error);
 
@@ -92,11 +146,20 @@ async function sendChat() {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
       body: JSON.stringify({ message, sessionId })
     });
 
     const data = await response.json();
+
+    if (response.status === 401) {
+      localStorage.removeItem('accessPin');
+      location.reload();
+      return;
+    }
 
     if (!response.ok) throw new Error(data.error);
 
