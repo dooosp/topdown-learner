@@ -54,12 +54,12 @@ app.post('/api/learn', checkAuth, async (req, res) => {
     console.log('4️⃣ 실습 과제 생성 중...');
     const mission = await implementor.createMission(topic, firstPrinciple);
 
-    // 세션 저장
+    // 세션 저장 (Gemini API는 user로 시작해야 함)
     const session = {
       topic,
       history: [
-        { role: 'assistant', content: firstPrinciple },
-        { role: 'assistant', content: question }
+        { role: 'user', content: `"${topic}"에 대해 배우고 싶습니다.` },
+        { role: 'model', content: firstPrinciple + '\n\n' + question }
       ],
       resources,
       mission
@@ -116,9 +116,9 @@ app.post('/api/chat', checkAuth, async (req, res) => {
 
     const response = await gemini.chat(session.history, message, systemPrompt);
 
-    // 히스토리 업데이트
+    // 히스토리 업데이트 (Gemini는 'model' 사용)
     session.history.push({ role: 'user', content: message });
-    session.history.push({ role: 'assistant', content: response });
+    session.history.push({ role: 'model', content: response });
 
     res.json({
       success: true,
