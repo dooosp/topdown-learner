@@ -4,6 +4,11 @@ const sessionId = 'session_' + Date.now();
 // PIN 저장
 let accessPin = localStorage.getItem('accessPin') || '';
 
+// 학습 진도 저장 키
+const PROGRESS_KEY = 'topdown_progress';
+let currentTopic = '';
+let chatHistory = [];
+
 // DOM 요소
 const pinModal = document.getElementById('pinModal');
 const pinInput = document.getElementById('pinInput');
@@ -146,10 +151,15 @@ async function startCodeLearning() {
 
     removeLoading();
 
-    addMessage('아키텍처 분석', data.analysis, 'assistant');
+    // 진도 저장 초기화
+    currentTopic = `코드: ${projectName}`;
+    chatHistory = [];
+
+    addMessageWithSave('아키텍처 분석', data.analysis, 'assistant');
 
     setTimeout(() => {
-      addMessage('소크라테스의 질문', data.question, 'assistant');
+      addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
+      showActionButtons();
     }, 500);
 
     // 리소스 패널에 GitHub 링크 표시
@@ -212,11 +222,16 @@ async function startLearning() {
     // 로딩 제거
     removeLoading();
 
-    // 메시지 표시
-    addMessage('제1원리 (Big Picture)', data.firstPrinciple, 'assistant');
+    // 진도 저장 초기화
+    currentTopic = topic;
+    chatHistory = [];
+
+    // 메시지 표시 (저장 포함)
+    addMessageWithSave('제1원리 (Big Picture)', data.firstPrinciple, 'assistant');
 
     setTimeout(() => {
-      addMessage('소크라테스의 질문', data.question, 'assistant');
+      addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
+      showActionButtons();
     }, 500);
 
     // 리소스 표시
@@ -248,8 +263,8 @@ async function sendChat() {
   const message = chatInput.value.trim();
   if (!message) return;
 
-  // 사용자 메시지 표시
-  addMessage('나', message, 'user');
+  // 사용자 메시지 표시 (저장 포함)
+  addMessageWithSave('나', message, 'user');
   chatInput.value = '';
   sendBtn.disabled = true;
 
@@ -277,7 +292,7 @@ async function sendChat() {
     if (!response.ok) throw new Error(data.error);
 
     removeLoading();
-    addMessage('튜터', data.response, 'assistant');
+    addMessageWithSave('튜터', data.response, 'assistant');
 
   } catch (error) {
     removeLoading();
@@ -360,4 +375,296 @@ function displayResources(resources) {
 function displayMission(mission) {
   missionSection.style.display = 'block';
   missionContent.innerHTML = formatContent(mission);
+}
+
+// ========== 학습 진도 저장 ==========
+
+function saveProgress() {
+  const progress = {
+    topic: currentTopic,
+    mode: currentMode,
+    chatHistory: chatHistory,
+    lastUpdated: new Date().toISOString()
+  };
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem(PROGRESS_KEY);
+  if (!saved) return null;
+  return JSON.parse(saved);
+}
+
+function clearProgress() {
+  localStorage.removeItem(PROGRESS_KEY);
+  currentTopic = '';
+  chatHistory = [];
+}
+
+function showResumePrompt() {
+  const progress = loadProgress();
+  if (!progress || !progress.topic) return;
+
+  const resumeDiv = document.createElement('div');
+  resumeDiv.id = 'resumePrompt';
+  resumeDiv.className = 'resume-prompt';
+  resumeDiv.innerHTML = `
+    <p>이전 학습: <strong>${progress.topic}</strong></p>
+    <p class="resume-date">${new Date(progress.lastUpdated).toLocaleDateString('ko-KR')}</p>
+    <div class="resume-buttons">
+      <button id="resumeBtn">이어서 학습</button>
+      <button id="newStartBtn">새로 시작</button>
+    </div>
+  `;
+  chatMessages.appendChild(resumeDiv);
+
+  document.getElementById('resumeBtn').onclick = resumeLearning;
+  document.getElementById('newStartBtn').onclick = () => {
+    clearProgress();
+    resumeDiv.remove();
+  };
+}
+
+function resumeLearning() {
+  const progress = loadProgress();
+  if (!progress) return;
+
+  document.getElementById('resumePrompt')?.remove();
+  currentTopic = progress.topic;
+  currentMode = progress.mode;
+  chatHistory = progress.chatHistory || [];
+
+  // 대화 복원
+  chatHistory.forEach(msg => {
+    addMessage(msg.label, msg.content, msg.type);
+  });
+
+  chatInputBox.style.display = 'flex';
+  chatInput.focus();
+  showActionButtons();
+}
+
+// 메시지 추가 시 히스토리 저장
+function addMessageWithSave(label, content, type) {
+  addMessage(label, content, type);
+  chatHistory.push({ label, content, type });
+  saveProgress();
+}
+
+// 페이지 로드 시 진도 확인
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (!pinModal.classList.contains('hidden')) return;
+    showResumePrompt();
+  }, 500);
+});
+
+// ========== 퀴즈 모드 ==========
+
+async function startQuiz() {
+  if (!currentTopic || chatHistory.length < 2) {
+    alert('먼저 학습을 진행해주세요!');
+    return;
+  }
+
+  addMessage('퀴즈', '퀴즈를 생성하고 있습니다...', 'assistant');
+
+  try {
+    const response = await fetch('/api/quiz', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ topic: currentTopic, chatHistory })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    // 마지막 메시지 교체
+    const lastMsg = chatMessages.lastElementChild;
+    if (lastMsg) lastMsg.remove();
+
+    displayQuiz(data.quiz);
+  } catch (error) {
+    alert('퀴즈 생성 실패: ' + error.message);
+  }
+}
+
+let quizData = null;
+let quizScore = 0;
+let currentQuestion = 0;
+
+function displayQuiz(quiz) {
+  quizData = quiz;
+  quizScore = 0;
+  currentQuestion = 0;
+
+  showQuestion();
+}
+
+function showQuestion() {
+  if (!quizData || currentQuestion >= quizData.questions.length) {
+    showQuizResult();
+    return;
+  }
+
+  const q = quizData.questions[currentQuestion];
+
+  const quizHtml = `
+    <div class="quiz-section" id="quizSection">
+      <h4>문제 ${currentQuestion + 1} / ${quizData.questions.length}</h4>
+      <div class="quiz-question">${q.question}</div>
+      <div class="quiz-options">
+        ${q.options.map((opt, i) => `
+          <div class="quiz-option" data-index="${i}">${opt}</div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // 기존 퀴즈 섹션 제거
+  document.getElementById('quizSection')?.remove();
+
+  const div = document.createElement('div');
+  div.innerHTML = quizHtml;
+  chatMessages.appendChild(div.firstElementChild);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // 선택지 클릭 이벤트
+  document.querySelectorAll('.quiz-option').forEach(opt => {
+    opt.onclick = () => selectAnswer(parseInt(opt.dataset.index));
+  });
+}
+
+function selectAnswer(index) {
+  const q = quizData.questions[currentQuestion];
+  const options = document.querySelectorAll('.quiz-option');
+
+  options.forEach((opt, i) => {
+    opt.onclick = null;
+    if (i === q.answer) {
+      opt.classList.add('correct');
+    } else if (i === index && i !== q.answer) {
+      opt.classList.add('wrong');
+    }
+  });
+
+  if (index === q.answer) {
+    quizScore++;
+  }
+
+  // 해설 표시
+  const explanation = document.createElement('p');
+  explanation.style.marginTop = '15px';
+  explanation.style.color = '#888';
+  explanation.innerHTML = `<strong>해설:</strong> ${q.explanation}`;
+  document.getElementById('quizSection').appendChild(explanation);
+
+  // 다음 문제 버튼
+  setTimeout(() => {
+    currentQuestion++;
+    if (currentQuestion < quizData.questions.length) {
+      showQuestion();
+    } else {
+      showQuizResult();
+    }
+  }, 2000);
+}
+
+function showQuizResult() {
+  document.getElementById('quizSection')?.remove();
+
+  const percent = Math.round((quizScore / quizData.questions.length) * 100);
+  const resultHtml = `
+    <div class="quiz-result">
+      <h3>퀴즈 완료!</h3>
+      <p style="font-size: 2rem; margin: 20px 0;">${quizScore} / ${quizData.questions.length}</p>
+      <p>${percent}% 정답</p>
+      ${percent >= 70 ? '<p style="color: #2ecc71;">훌륭해요!</p>' : '<p style="color: #f39c12;">조금 더 복습해보세요!</p>'}
+    </div>
+  `;
+
+  addMessage('퀴즈 결과', resultHtml, 'assistant');
+
+  // 점수 저장
+  const progress = loadProgress() || {};
+  progress.quizScores = progress.quizScores || [];
+  progress.quizScores.push({ date: new Date().toISOString(), score: quizScore, total: quizData.questions.length });
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+}
+
+// ========== PDF 내보내기 ==========
+
+async function exportPDF() {
+  if (!currentTopic || chatHistory.length < 2) {
+    alert('내보낼 학습 내용이 없습니다!');
+    return;
+  }
+
+  // jsPDF 로드
+  if (!window.jspdf) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    document.head.appendChild(script);
+    await new Promise(resolve => script.onload = resolve);
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // 한글 폰트 대신 간단한 텍스트
+  doc.setFontSize(18);
+  doc.text('Top-Down Learner', 105, 20, { align: 'center' });
+
+  doc.setFontSize(14);
+  doc.text(`Topic: ${currentTopic}`, 20, 40);
+  doc.text(`Date: ${new Date().toLocaleDateString('ko-KR')}`, 20, 50);
+
+  doc.setFontSize(10);
+  let y = 70;
+
+  chatHistory.forEach(msg => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont(undefined, 'bold');
+    doc.text(`[${msg.label}]`, 20, y);
+    y += 7;
+
+    doc.setFont(undefined, 'normal');
+    const lines = doc.splitTextToSize(msg.content.replace(/<[^>]*>/g, '').slice(0, 500), 170);
+    lines.forEach(line => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, 20, y);
+      y += 5;
+    });
+    y += 10;
+  });
+
+  doc.save(`topdown-${currentTopic.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.pdf`);
+}
+
+// 액션 버튼 표시
+function showActionButtons() {
+  const existing = document.getElementById('actionButtons');
+  if (existing) return;
+
+  const btnsHtml = `
+    <div class="action-buttons" id="actionButtons">
+      <button class="action-btn" onclick="startQuiz()">퀴즈 풀기</button>
+      <button class="action-btn" onclick="exportPDF()">PDF 저장</button>
+      <button class="action-btn" onclick="clearProgress(); location.reload();">진도 초기화</button>
+    </div>
+  `;
+
+  const div = document.createElement('div');
+  div.innerHTML = btnsHtml;
+  chatMessages.appendChild(div.firstElementChild);
 }

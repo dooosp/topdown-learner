@@ -9,6 +9,7 @@ const curator = require('./agents/curator');
 const implementor = require('./agents/implementor');
 const codeAnalyzer = require('./agents/code-analyzer');
 const claudeMdParser = require('./services/claude-md-parser');
+const quizGenerator = require('./agents/quiz-generator');
 
 const app = express();
 
@@ -202,6 +203,26 @@ app.post('/api/learn-code', checkAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('코드 학습 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 퀴즈 생성 API
+app.post('/api/quiz', checkAuth, async (req, res) => {
+  const { topic, chatHistory } = req.body;
+
+  if (!topic || !chatHistory) {
+    return res.status(400).json({ error: '학습 내용이 필요합니다' });
+  }
+
+  try {
+    console.log(`\n📝 퀴즈 생성: "${topic}"`);
+    const quiz = await quizGenerator.generate(topic, chatHistory);
+    console.log('✅ 퀴즈 생성 완료!\n');
+
+    res.json({ success: true, quiz });
+  } catch (error) {
+    console.error('퀴즈 생성 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });
