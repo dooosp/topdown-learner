@@ -20,6 +20,17 @@ const articleList = document.getElementById('articleList');
 const missionSection = document.getElementById('missionSection');
 const missionContent = document.getElementById('missionContent');
 
+// 모드 관련 요소
+const modeSelector = document.getElementById('modeSelector');
+const generalInput = document.getElementById('generalInput');
+const codeInput = document.getElementById('codeInput');
+const projectSelect = document.getElementById('projectSelect');
+const startCodeBtn = document.getElementById('startCodeBtn');
+const welcomeGeneral = document.getElementById('welcomeGeneral');
+const welcomeCode = document.getElementById('welcomeCode');
+
+let currentMode = 'general';
+
 // PIN 검증
 if (accessPin) {
   pinModal.classList.add('hidden');
@@ -55,6 +66,105 @@ async function verifyPin() {
     pinModal.classList.add('hidden');
   } catch (error) {
     pinError.textContent = '연결 오류가 발생했습니다';
+  }
+}
+
+// 모드 전환
+modeSelector.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('mode-btn')) return;
+
+  const mode = e.target.dataset.mode;
+  if (mode === currentMode) return;
+
+  currentMode = mode;
+
+  // 버튼 활성화 상태 변경
+  document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+  e.target.classList.add('active');
+
+  // UI 전환
+  if (mode === 'code') {
+    generalInput.style.display = 'none';
+    codeInput.style.display = 'flex';
+    welcomeGeneral.style.display = 'none';
+    welcomeCode.style.display = 'block';
+    await loadProjects();
+  } else {
+    generalInput.style.display = 'flex';
+    codeInput.style.display = 'none';
+    welcomeGeneral.style.display = 'block';
+    welcomeCode.style.display = 'none';
+  }
+});
+
+// 프로젝트 목록 로드
+async function loadProjects() {
+  try {
+    const response = await fetch('/api/projects', {
+      headers: { 'X-Access-Pin': accessPin }
+    });
+    const data = await response.json();
+
+    if (data.projects) {
+      projectSelect.innerHTML = '<option value="">프로젝트를 선택하세요</option>';
+      data.projects.forEach(p => {
+        if (p.exists) {
+          projectSelect.innerHTML += `<option value="${p.name}">${p.name} - ${p.description}</option>`;
+        }
+      });
+    }
+  } catch (error) {
+    console.error('프로젝트 로드 실패:', error);
+  }
+}
+
+// 코드 학습 시작
+startCodeBtn.addEventListener('click', startCodeLearning);
+
+async function startCodeLearning() {
+  const projectName = projectSelect.value;
+  if (!projectName) return;
+
+  chatMessages.innerHTML = '';
+  startCodeBtn.disabled = true;
+  startCodeBtn.textContent = '분석 중...';
+
+  addLoadingMessage('프로젝트를 분석하고 있습니다...');
+
+  try {
+    const response = await fetch('/api/learn-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ projectName, sessionId })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+
+    addMessage('아키텍처 분석', data.analysis, 'assistant');
+
+    setTimeout(() => {
+      addMessage('소크라테스의 질문', data.question, 'assistant');
+    }, 500);
+
+    // 리소스 패널에 경로 표시
+    videoList.innerHTML = `<p class="empty-state">경로: ${data.projectPath}</p>`;
+    articleList.innerHTML = '<p class="empty-state">코드 학습 모드</p>';
+
+    chatInputBox.style.display = 'flex';
+    chatInput.focus();
+
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  } finally {
+    startCodeBtn.disabled = false;
+    startCodeBtn.textContent = '코드 학습';
   }
 }
 

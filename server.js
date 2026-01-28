@@ -7,6 +7,8 @@ const abstractor = require('./agents/abstractor');
 const socratic = require('./agents/socratic');
 const curator = require('./agents/curator');
 const implementor = require('./agents/implementor');
+const codeAnalyzer = require('./agents/code-analyzer');
+const claudeMdParser = require('./services/claude-md-parser');
 
 const app = express();
 
@@ -139,6 +141,67 @@ app.post('/api/search', async (req, res) => {
     res.json({ success: true, resources });
   } catch (error) {
     console.error('검색 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 프로젝트 목록 API (코드 학습용)
+app.get('/api/projects', checkAuth, (req, res) => {
+  try {
+    const projects = claudeMdParser.parseProjects();
+    res.json({ success: true, projects });
+  } catch (error) {
+    console.error('프로젝트 목록 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 코드 학습 시작 API
+app.post('/api/learn-code', checkAuth, async (req, res) => {
+  const { projectName, sessionId } = req.body;
+
+  if (!projectName) {
+    return res.status(400).json({ error: '프로젝트를 선택해주세요' });
+  }
+
+  try {
+    console.log(`\n💻 코드 학습 시작: "${projectName}"`);
+
+    const project = claudeMdParser.getProject(projectName);
+    if (!project || !project.exists) {
+      return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다' });
+    }
+
+    // 1단계: 코드 분석
+    console.log('1️⃣ 프로젝트 분석 중...');
+    const analysis = await codeAnalyzer.analyze(project.path, projectName);
+
+    // 2단계: 소크라테스 질문
+    console.log('2️⃣ 학습 질문 생성 중...');
+    const question = await socratic.inquireCode(projectName, analysis);
+
+    // 세션 저장
+    const session = {
+      topic: `코드: ${projectName}`,
+      projectPath: project.path,
+      mode: 'code',
+      history: [
+        { role: 'user', content: `"${projectName}" 코드를 배우고 싶습니다.` },
+        { role: 'model', content: analysis + '\n\n' + question }
+      ]
+    };
+    sessions.set(sessionId, session);
+
+    console.log('✅ 코드 학습 준비 완료!\n');
+
+    res.json({
+      success: true,
+      analysis,
+      question,
+      projectPath: project.path
+    });
+  } catch (error) {
+    console.error('코드 학습 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });

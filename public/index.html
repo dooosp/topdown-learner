@@ -22,20 +22,37 @@
     <header class="header">
       <h1>Top-Down Learner</h1>
       <p class="subtitle">소크라테스식 제1원리 학습</p>
+      <div class="mode-selector" id="modeSelector">
+        <button class="mode-btn active" data-mode="general">일반 주제</button>
+        <button class="mode-btn" data-mode="code">내 코드</button>
+      </div>
     </header>
 
     <div class="main-content">
       <!-- 좌측: 대화창 -->
       <div class="chat-panel">
-        <div class="search-box">
+        <!-- 일반 주제 입력 -->
+        <div class="search-box" id="generalInput">
           <input type="text" id="topicInput" placeholder="무엇을 배우고 싶으신가요? (예: 반도체, 요리, 프로그래밍...)" />
           <button id="startBtn">탐구 시작</button>
         </div>
 
+        <!-- 코드 학습: 프로젝트 선택 -->
+        <div class="search-box" id="codeInput" style="display: none;">
+          <select id="projectSelect">
+            <option value="">프로젝트를 선택하세요</option>
+          </select>
+          <button id="startCodeBtn">코드 학습</button>
+        </div>
+
         <div class="chat-messages" id="chatMessages">
-          <div class="welcome-message">
+          <div class="welcome-message" id="welcomeGeneral">
             <p>어떤 주제든 입력해보세요.</p>
             <p>제1원리부터 시작해서 깊이 있는 이해로 안내해드립니다.</p>
+          </div>
+          <div class="welcome-message" id="welcomeCode" style="display: none;">
+            <p>내가 만든 코드를 배워봅시다!</p>
+            <p>프로젝트를 선택하면 구조를 분석하고 소크라테스 질문으로 이해를 도와드립니다.</p>
           </div>
         </div>
 
