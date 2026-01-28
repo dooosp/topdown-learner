@@ -595,7 +595,7 @@ function showQuizResult() {
   localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
 }
 
-// ========== PDF 내보내기 ==========
+// ========== PDF 내보내기 (html2pdf 사용) ==========
 
 async function exportPDF() {
   if (!currentTopic || chatHistory.length < 2) {
@@ -603,52 +603,40 @@ async function exportPDF() {
     return;
   }
 
-  // jsPDF 로드
-  if (!window.jspdf) {
+  // html2pdf 로드
+  if (!window.html2pdf) {
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
     document.head.appendChild(script);
     await new Promise(resolve => script.onload = resolve);
   }
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  // PDF용 HTML 생성
+  const pdfContent = document.createElement('div');
+  pdfContent.style.cssText = 'padding: 20px; font-family: sans-serif; background: white; color: black;';
 
-  // 한글 폰트 대신 간단한 텍스트
-  doc.setFontSize(18);
-  doc.text('Top-Down Learner', 105, 20, { align: 'center' });
+  pdfContent.innerHTML = `
+    <h1 style="text-align: center; color: #667eea;">Top-Down Learner</h1>
+    <h2 style="color: #333;">${currentTopic}</h2>
+    <p style="color: #888;">학습일: ${new Date().toLocaleDateString('ko-KR')}</p>
+    <hr style="margin: 20px 0;">
+    ${chatHistory.map(msg => `
+      <div style="margin-bottom: 20px;">
+        <p style="font-weight: bold; color: #667eea; margin-bottom: 5px;">[${msg.label}]</p>
+        <div style="line-height: 1.6; white-space: pre-wrap;">${msg.content.replace(/<[^>]*>/g, '')}</div>
+      </div>
+    `).join('')}
+  `;
 
-  doc.setFontSize(14);
-  doc.text(`Topic: ${currentTopic}`, 20, 40);
-  doc.text(`Date: ${new Date().toLocaleDateString('ko-KR')}`, 20, 50);
+  const opt = {
+    margin: 10,
+    filename: `topdown-${currentTopic.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
 
-  doc.setFontSize(10);
-  let y = 70;
-
-  chatHistory.forEach(msg => {
-    if (y > 270) {
-      doc.addPage();
-      y = 20;
-    }
-
-    doc.setFont(undefined, 'bold');
-    doc.text(`[${msg.label}]`, 20, y);
-    y += 7;
-
-    doc.setFont(undefined, 'normal');
-    const lines = doc.splitTextToSize(msg.content.replace(/<[^>]*>/g, '').slice(0, 500), 170);
-    lines.forEach(line => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(line, 20, y);
-      y += 5;
-    });
-    y += 10;
-  });
-
-  doc.save(`topdown-${currentTopic.replace(/[^a-zA-Z0-9가-힣]/g, '_')}.pdf`);
+  await html2pdf().set(opt).from(pdfContent).save();
 }
 
 // 액션 버튼 표시
