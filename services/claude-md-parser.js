@@ -1,47 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const CLAUDE_MD_PATH = '/home/taeho/.claude/CLAUDE.md';
+const PROJECTS_JSON_PATH = path.join(__dirname, '../data/projects.json');
 
 /**
- * CLAUDE.md에서 프로젝트 목록 파싱
+ * projects.json에서 프로젝트 목록 로드
  */
 function parseProjects() {
-  const content = fs.readFileSync(CLAUDE_MD_PATH, 'utf-8');
-  const projects = [];
-
-  // "## 프로젝트명" 패턴으로 분리
-  const projectRegex = /## (\S+) \(([^)]+)\)\n([\s\S]*?)(?=\n## |\n# |$)/g;
-  let match;
-
-  while ((match = projectRegex.exec(content)) !== null) {
-    const name = match[1];
-    const description = match[2];
-    const body = match[3];
-
-    // 경로 추출
-    const pathMatch = body.match(/경로:\s*(\S+)/);
-    const projectPath = pathMatch ? pathMatch[1] : null;
-
-    // GitHub URL 추출
-    const githubMatch = body.match(/GitHub:\s*(https:\/\/github\.com\/\S+)/);
-    const github = githubMatch ? githubMatch[1] : null;
-
-    // 기능 추출 (간단히)
-    const featuresMatch = body.match(/기능:\s*([\s\S]*?)(?=\n- [^-]|\n##|\n#|$)/);
-
-    if (projectPath) {
-      projects.push({
-        name,
-        description,
-        path: projectPath,
-        github,
-        exists: fs.existsSync(projectPath)
-      });
-    }
+  try {
+    const data = JSON.parse(fs.readFileSync(PROJECTS_JSON_PATH, 'utf-8'));
+    return data.projects.map(p => ({
+      ...p,
+      exists: true  // GitHub 기반이므로 항상 존재
+    }));
+  } catch (error) {
+    console.error('프로젝트 목록 로드 실패:', error);
+    return [];
   }
-
-  return projects;
 }
 
 /**

@@ -172,9 +172,9 @@ app.post('/api/learn-code', checkAuth, async (req, res) => {
       return res.status(404).json({ error: '프로젝트를 찾을 수 없습니다' });
     }
 
-    // 1단계: 코드 분석
-    console.log('1️⃣ 프로젝트 분석 중...');
-    const analysis = await codeAnalyzer.analyze(project.path, projectName);
+    // 1단계: 코드 분석 (GitHub에서 가져옴)
+    console.log('1️⃣ GitHub에서 프로젝트 분석 중...');
+    const analysis = await codeAnalyzer.analyze(project);
 
     // 2단계: 소크라테스 질문
     console.log('2️⃣ 학습 질문 생성 중...');
@@ -183,7 +183,7 @@ app.post('/api/learn-code', checkAuth, async (req, res) => {
     // 세션 저장
     const session = {
       topic: `코드: ${projectName}`,
-      projectPath: project.path,
+      github: project.github,
       mode: 'code',
       history: [
         { role: 'user', content: `"${projectName}" 코드를 배우고 싶습니다.` },
@@ -198,7 +198,7 @@ app.post('/api/learn-code', checkAuth, async (req, res) => {
       success: true,
       analysis,
       question,
-      projectPath: project.path
+      github: `https://github.com/${project.github}`
     });
   } catch (error) {
     console.error('코드 학습 오류:', error);

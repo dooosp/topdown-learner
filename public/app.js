@@ -152,8 +152,11 @@ async function startCodeLearning() {
       addMessage('소크라테스의 질문', data.question, 'assistant');
     }, 500);
 
-    // 리소스 패널에 경로 표시
-    videoList.innerHTML = `<p class="empty-state">경로: ${data.projectPath}</p>`;
+    // 리소스 패널에 GitHub 링크 표시
+    videoList.innerHTML = `<a href="${data.github}" target="_blank" class="article-card">
+      <div class="article-title">GitHub 저장소</div>
+      <div class="article-snippet">${data.github}</div>
+    </a>`;
     articleList.innerHTML = '<p class="empty-state">코드 학습 모드</p>';
 
     chatInputBox.style.display = 'flex';

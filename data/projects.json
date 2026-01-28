@@ -1,0 +1,46 @@
+{
+  "projects": [
+    {
+      "name": "news-scraper",
+      "description": "멀티 소스 뉴스 수집 및 이메일 발송",
+      "github": "dooosp/news-scraper",
+      "mainFiles": ["index.js", "package.json"],
+      "folders": ["scrapers", "lib", "templates"]
+    },
+    {
+      "name": "auto-trader",
+      "description": "한국투자증권 API 기반 자동매매 시스템",
+      "github": "dooosp/auto-trader",
+      "mainFiles": ["index.js", "package.json", "config.js"],
+      "folders": ["indicators.js", "trade-executor.js"]
+    },
+    {
+      "name": "b2b-lead-agent",
+      "description": "Danfoss 맞춤형 B2B 리드 발굴",
+      "github": "dooosp/b2b-lead-agent",
+      "mainFiles": ["index.js", "package.json"],
+      "folders": ["agents", "services"]
+    },
+    {
+      "name": "job-hunter-agent",
+      "description": "사람인 채용공고 자동 수집",
+      "github": "dooosp/job-hunter-agent",
+      "mainFiles": ["index.js", "package.json"],
+      "folders": ["scrapers"]
+    },
+    {
+      "name": "topdown-learner",
+      "description": "소크라테스식 제1원리 학습 에이전트",
+      "github": "dooosp/topdown-learner",
+      "mainFiles": ["server.js", "package.json"],
+      "folders": ["agents", "services", "public"]
+    },
+    {
+      "name": "pm-agent-system",
+      "description": "PM/PO 워크플로우 멀티 에이전트",
+      "github": "dooosp/pm-agent-system",
+      "mainFiles": ["server.js", "package.json"],
+      "folders": ["agents", "services"]
+    }
+  ]
+}
