@@ -1,5 +1,8 @@
 const gemini = require('../services/gemini');
 
+// GitHub 토큰 (private repo 접근용)
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+
 const SYSTEM_PROMPT = `당신은 코드 구조를 "큰 그림"으로 시각화하는 전문가입니다.
 
 # 규칙
@@ -8,17 +11,27 @@ const SYSTEM_PROMPT = `당신은 코드 구조를 "큰 그림"으로 시각화�
 3. 데이터 흐름을 화살표(→)로 표현
 4. 한국어로 설명`;
 
+// GitHub API 헤더 (토큰 있으면 추가)
+function getGitHubHeaders() {
+  const headers = { 'Accept': 'application/vnd.github.v3+json' };
+  if (GITHUB_TOKEN) {
+    headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+  }
+  return headers;
+}
+
 /**
  * GitHub에서 파일 내용 가져오기
  */
 async function fetchGitHubFile(repo, filePath) {
+  const headers = getGitHubHeaders();
   const url = `https://raw.githubusercontent.com/${repo}/master/${filePath}`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers });
     if (!response.ok) {
       // master 브랜치가 없으면 main 시도
       const mainUrl = `https://raw.githubusercontent.com/${repo}/main/${filePath}`;
-      const mainResponse = await fetch(mainUrl);
+      const mainResponse = await fetch(mainUrl, { headers });
       if (!mainResponse.ok) return null;
       return await mainResponse.text();
     }
@@ -35,7 +48,7 @@ async function fetchGitHubFile(repo, filePath) {
 async function fetchRepoStructure(repo) {
   const url = `https://api.github.com/repos/${repo}/contents`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: getGitHubHeaders() });
     if (!response.ok) return [];
     return await response.json();
   } catch (error) {
