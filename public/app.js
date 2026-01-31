@@ -177,9 +177,17 @@ async function startCodeLearning() {
     addMessage('오류', error.message, 'assistant');
   } finally {
     startCodeBtn.disabled = false;
-    startCodeBtn.textContent = '코드 학습';
+    startCodeBtn.textContent = '분석 시작';
   }
 }
+
+// 예시 주제 칩
+const topicChips = document.getElementById('topicChips');
+topicChips.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('topic-chip')) return;
+  topicInput.value = e.target.dataset.topic;
+  topicInput.focus();
+});
 
 // 학습 시작
 startBtn.addEventListener('click', startLearning);
@@ -193,8 +201,9 @@ async function startLearning() {
 
   // UI 초기화
   chatMessages.innerHTML = '';
+  topicChips.style.display = 'none';
   startBtn.disabled = true;
-  startBtn.textContent = '탐구 중...';
+  startBtn.textContent = '학습 중...';
 
   // 로딩 표시
   addLoadingMessage('제1원리를 찾고 있습니다...');
@@ -249,7 +258,7 @@ async function startLearning() {
     addMessage('오류', error.message, 'assistant');
   } finally {
     startBtn.disabled = false;
-    startBtn.textContent = '탐구 시작';
+    startBtn.textContent = '학습 시작';
   }
 }
 

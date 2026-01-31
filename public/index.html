@@ -10,8 +10,9 @@
   <!-- PIN 입력 모달 -->
   <div id="pinModal" class="pin-modal">
     <div class="pin-content">
-      <h2>비밀번호 입력</h2>
-      <input type="password" id="pinInput" placeholder="비밀번호를 입력하세요" />
+      <h2>Top-Down Learner</h2>
+      <p class="pin-desc">소크라테스식 제1원리 학습 도구</p>
+      <input type="password" id="pinInput" placeholder="접근 PIN을 입력하세요" />
       <button id="pinSubmit">확인</button>
       <p id="pinError" class="pin-error"></p>
     </div>
@@ -23,8 +24,8 @@
       <h1>Top-Down Learner</h1>
       <p class="subtitle">소크라테스식 제1원리 학습</p>
       <div class="mode-selector" id="modeSelector">
-        <button class="mode-btn active" data-mode="general">일반 주제</button>
-        <button class="mode-btn" data-mode="code">내 코드</button>
+        <button class="mode-btn active" data-mode="general">주제 학습</button>
+        <button class="mode-btn" data-mode="code">코드 분석</button>
       </div>
     </header>
 
@@ -33,8 +34,14 @@
       <div class="chat-panel">
         <!-- 일반 주제 입력 -->
         <div class="search-box" id="generalInput">
-          <input type="text" id="topicInput" placeholder="무엇을 배우고 싶으신가요? (예: 반도체, 요리, 프로그래밍...)" />
-          <button id="startBtn">탐구 시작</button>
+          <input type="text" id="topicInput" placeholder="예: 반도체, 양자역학, 머신러닝..." />
+          <button id="startBtn">학습 시작</button>
+        </div>
+        <div class="topic-chips" id="topicChips">
+          <button class="topic-chip" data-topic="반도체">반도체</button>
+          <button class="topic-chip" data-topic="양자역학">양자역학</button>
+          <button class="topic-chip" data-topic="TCP/IP">TCP/IP</button>
+          <button class="topic-chip" data-topic="미적분">미적분</button>
         </div>
 
         <!-- 코드 학습: 프로젝트 선택 -->
@@ -42,13 +49,19 @@
           <select id="projectSelect">
             <option value="">프로젝트를 선택하세요</option>
           </select>
-          <button id="startCodeBtn">코드 학습</button>
+          <button id="startCodeBtn">분석 시작</button>
         </div>
 
         <div class="chat-messages" id="chatMessages">
           <div class="welcome-message" id="welcomeGeneral">
+            <div class="onboarding" id="onboarding">
+              <div class="onboarding-steps">
+                <div class="onboarding-step"><span class="step-num">1</span> 주제를 입력하면</div>
+                <div class="onboarding-step"><span class="step-num">2</span> AI가 핵심 원리를 추출하고</div>
+                <div class="onboarding-step"><span class="step-num">3</span> 소크라테스식 질문으로 안내합니다</div>
+              </div>
+            </div>
             <p>어떤 주제든 입력해보세요.</p>
-            <p>제1원리부터 시작해서 깊이 있는 이해로 안내해드립니다.</p>
           </div>
           <div class="welcome-message" id="welcomeCode" style="display: none;">
             <p>내가 만든 코드를 배워봅시다!</p>
@@ -57,7 +70,7 @@
         </div>
 
         <div class="chat-input-box" id="chatInputBox" style="display: none;">
-          <input type="text" id="chatInput" placeholder="답변하거나 질문해보세요..." />
+          <input type="text" id="chatInput" placeholder="질문이나 답변을 입력하세요" />
           <button id="sendBtn">전송</button>
         </div>
       </div>
