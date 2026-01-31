@@ -20,7 +20,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 const sessions = new Map();
 
 // PIN 인증 미들웨어
-const ACCESS_PIN = process.env.ACCESS_PIN || '1234';
+const ACCESS_PIN = process.env.ACCESS_PIN;
+if (!ACCESS_PIN) {
+  console.error('ACCESS_PIN 환경변수가 설정되지 않았습니다. 서버를 시작할 수 없습니다.');
+  process.exit(1);
+}
 
 function checkAuth(req, res, next) {
   const pin = req.headers['x-access-pin'] || req.body.pin;
