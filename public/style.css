@@ -824,3 +824,112 @@ body {
 .action-btn:hover {
   background: rgba(102, 126, 234, 0.1);
 }
+
+/* ========== 에이전트 검증 모드 ========== */
+
+.verify-progress {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 15px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.step-indicator {
+  font-weight: bold;
+  color: #667eea;
+}
+
+.step-title {
+  color: #ccc;
+}
+
+.step-complete {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.next-step-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.next-step-btn:hover {
+  background: #5a6fd6;
+}
+
+.verify-steps-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.step-preview {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.verify-step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.2s;
+}
+
+.verify-step-item .step-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.verify-step-item.active {
+  background: rgba(102, 126, 234, 0.2);
+  border-left: 3px solid #667eea;
+}
+
+.verify-step-item.active .step-num {
+  background: #667eea;
+  color: white;
+}
+
+.verify-step-item.done {
+  opacity: 0.6;
+}
+
+.verify-step-item.done .step-num {
+  background: #2ecc71;
+  color: white;
+}
+
+/* 힌트 메시지 */
+.message.hint {
+  background: rgba(241, 196, 15, 0.1);
+  border-left: 3px solid #f1c40f;
+}
+
+.message.hint .label {
+  color: #f1c40f;
+}

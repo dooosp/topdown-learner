@@ -33,8 +33,17 @@ const projectSelect = document.getElementById('projectSelect');
 const startCodeBtn = document.getElementById('startCodeBtn');
 const welcomeGeneral = document.getElementById('welcomeGeneral');
 const welcomeCode = document.getElementById('welcomeCode');
+const welcomeVerify = document.getElementById('welcomeVerify');
+const verifyInput = document.getElementById('verifyInput');
+const agentSelect = document.getElementById('agentSelect');
+const startVerifyBtn = document.getElementById('startVerifyBtn');
+const verifyProgress = document.getElementById('verifyProgress');
+const currentStepEl = document.getElementById('currentStep');
+const stepTitleEl = document.getElementById('stepTitle');
+const nextStepBtn = document.getElementById('nextStepBtn');
 
 let currentMode = 'general';
+let verifyMode = false;
 
 // PIN 검증
 if (accessPin) {
@@ -69,7 +78,7 @@ async function verifyPin() {
     accessPin = pin;
     localStorage.setItem('accessPin', pin);
     pinModal.classList.add('hidden');
-  } catch (error) {
+  } catch {
     pinError.textContent = '연결 오류가 발생했습니다';
   }
 }
@@ -88,17 +97,27 @@ modeSelector.addEventListener('click', async (e) => {
   e.target.classList.add('active');
 
   // UI 전환
+  generalInput.style.display = 'none';
+  codeInput.style.display = 'none';
+  verifyInput.style.display = 'none';
+  verifyProgress.style.display = 'none';
+  welcomeGeneral.style.display = 'none';
+  welcomeCode.style.display = 'none';
+  welcomeVerify.style.display = 'none';
+  verifyMode = false;
+
   if (mode === 'code') {
-    generalInput.style.display = 'none';
     codeInput.style.display = 'flex';
-    welcomeGeneral.style.display = 'none';
     welcomeCode.style.display = 'block';
     await loadProjects();
+  } else if (mode === 'verify') {
+    verifyInput.style.display = 'flex';
+    welcomeVerify.style.display = 'block';
+    verifyMode = true;
+    await loadAgents();
   } else {
     generalInput.style.display = 'flex';
-    codeInput.style.display = 'none';
     welcomeGeneral.style.display = 'block';
-    welcomeCode.style.display = 'none';
   }
 });
 
@@ -470,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ========== 퀴즈 모드 ==========
 
+// eslint-disable-next-line no-unused-vars -- called via onclick in dynamic HTML
 async function startQuiz() {
   if (!currentTopic || chatHistory.length < 2) {
     alert('먼저 학습을 진행해주세요!');
@@ -606,6 +626,7 @@ function showQuizResult() {
 
 // ========== PDF 내보내기 (html2pdf 사용) ==========
 
+// eslint-disable-next-line no-unused-vars -- called via onclick in dynamic HTML
 async function exportPDF() {
   if (!currentTopic || chatHistory.length < 2) {
     alert('내보낼 학습 내용이 없습니다!');
@@ -665,3 +686,219 @@ function showActionButtons() {
   div.innerHTML = btnsHtml;
   chatMessages.appendChild(div.firstElementChild);
 }
+
+// ========== 에이전트 검증 학습 모드 ==========
+
+const STEP_TITLES = [
+  '컴포넌트 분해', '성공 기준 정의', '코드 검증 체크리스트',
+  '아키텍처 패턴 분석', '의존성 및 폴백 검토', '프롬프트 품질 (CRAFT)', '개선 로드맵'
+];
+
+// 에이전트 목록 로드
+async function loadAgents() {
+  try {
+    const response = await fetch('/api/agents', {
+      headers: { 'X-Access-Pin': accessPin }
+    });
+    const data = await response.json();
+
+    if (data.grouped) {
+      agentSelect.innerHTML = '<option value="">검증할 에이전트를 선택하세요</option>';
+      Object.entries(data.grouped).forEach(([category, agents]) => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = category.toUpperCase();
+        agents.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.name;
+          opt.textContent = `${a.name} (${a.pattern})`;
+          optgroup.appendChild(opt);
+        });
+        agentSelect.appendChild(optgroup);
+      });
+    }
+  } catch (error) {
+    console.error('에이전트 로드 실패:', error);
+  }
+}
+
+// 검증 시작
+startVerifyBtn.addEventListener('click', startVerification);
+
+async function startVerification() {
+  const agentName = agentSelect.value;
+  if (!agentName) return;
+
+  chatMessages.innerHTML = '';
+  startVerifyBtn.disabled = true;
+  startVerifyBtn.textContent = '검증 준비 중...';
+
+  addLoadingMessage('검증 학습을 준비하고 있습니다...');
+
+  try {
+    const response = await fetch('/api/verify-start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ agentName, sessionId })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+
+    currentTopic = `검증: ${agentName}`;
+    chatHistory = [];
+
+    // 진행 표시 업데이트
+    verifyProgress.style.display = 'flex';
+    updateStepIndicator(data.step, data.title);
+
+    addMessageWithSave(`1단계: ${data.title}`, data.response, 'assistant');
+
+    // 힌트 표시
+    if (data.hint) {
+      addMessage('힌트', data.hint, 'hint');
+    }
+
+    chatInputBox.style.display = 'flex';
+    chatInput.focus();
+
+    // 리소스 패널에 단계 표시
+    displayVerifySteps(data.step);
+
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  } finally {
+    startVerifyBtn.disabled = false;
+    startVerifyBtn.textContent = '검증 시작';
+  }
+}
+
+// 검증 대화
+async function sendVerifyMessage() {
+  const message = chatInput.value.trim();
+  if (!message) return;
+
+  addMessageWithSave('나의 답변', message, 'user');
+  chatInput.value = '';
+
+  addLoadingMessage('분석 중...');
+
+  try {
+    const response = await fetch('/api/verify-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ message, sessionId })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+    addMessageWithSave('멘토', data.response, 'assistant');
+
+    // "다음 단계" 버튼 표시 조건
+    if (data.response.includes('다음 단계') || data.response.includes('넘어갈')) {
+      nextStepBtn.style.display = 'inline-block';
+    }
+
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  }
+}
+
+// 다음 단계로 이동
+nextStepBtn.addEventListener('click', goToNextStep);
+
+async function goToNextStep() {
+  nextStepBtn.style.display = 'none';
+  addLoadingMessage('다음 단계로 이동 중...');
+
+  try {
+    const response = await fetch('/api/verify-next', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ sessionId })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+
+    if (data.isComplete) {
+      verifyProgress.innerHTML = '<span class="step-complete">검증 완료!</span>';
+      addMessageWithSave('검증 완료', data.response, 'assistant');
+      showVerifyActionButtons();
+    } else {
+      updateStepIndicator(data.step, data.title);
+      addMessageWithSave(`${data.step}단계: ${data.title}`, data.response, 'assistant');
+      displayVerifySteps(data.step);
+    }
+
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  }
+}
+
+function updateStepIndicator(step, title) {
+  currentStepEl.textContent = step;
+  stepTitleEl.textContent = title;
+}
+
+function displayVerifySteps(currentStep) {
+  videoList.innerHTML = STEP_TITLES.map((title, i) => `
+    <div class="verify-step-item ${i + 1 === currentStep ? 'active' : ''} ${i + 1 < currentStep ? 'done' : ''}">
+      <span class="step-num">${i + 1}</span>
+      <span>${title}</span>
+    </div>
+  `).join('');
+  articleList.innerHTML = '<p class="empty-state">에이전트 검증 모드</p>';
+}
+
+function showVerifyActionButtons() {
+  const btnsHtml = `
+    <div class="action-buttons" id="actionButtons">
+      <button class="action-btn" onclick="exportPDF()">PDF 저장</button>
+      <button class="action-btn" onclick="location.reload();">새 검증 시작</button>
+    </div>
+  `;
+  const div = document.createElement('div');
+  div.innerHTML = btnsHtml;
+  chatMessages.appendChild(div.firstElementChild);
+}
+
+// 전송 버튼 - 모드에 따라 분기
+const originalSendClick = sendBtn.onclick;
+sendBtn.onclick = null;
+sendBtn.addEventListener('click', () => {
+  if (verifyMode) {
+    sendVerifyMessage();
+  } else {
+    sendMessage();
+  }
+});
+
+// Enter 키 - 모드에 따라 분기
+chatInput.removeEventListener('keypress', () => {});
+chatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    if (verifyMode) {
+      sendVerifyMessage();
+    } else {
+      sendMessage();
+    }
+  }
+});

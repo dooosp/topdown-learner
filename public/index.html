@@ -30,6 +30,7 @@
       <div class="mode-selector" id="modeSelector">
         <button class="mode-btn active" data-mode="general">주제 학습</button>
         <button class="mode-btn" data-mode="code">코드 분석</button>
+        <button class="mode-btn" data-mode="verify">에이전트 검증</button>
       </div>
     </header>
 
@@ -56,6 +57,19 @@
           <button id="startCodeBtn">분석 시작</button>
         </div>
 
+        <!-- 에이전트 검증: 에이전트 선택 -->
+        <div class="search-box" id="verifyInput" style="display: none;">
+          <select id="agentSelect">
+            <option value="">검증할 에이전트를 선택하세요</option>
+          </select>
+          <button id="startVerifyBtn">검증 시작</button>
+        </div>
+        <div class="verify-progress" id="verifyProgress" style="display: none;">
+          <span class="step-indicator">단계 <span id="currentStep">1</span>/7</span>
+          <span class="step-title" id="stepTitle">컴포넌트 분해</span>
+          <button id="nextStepBtn" class="next-step-btn" style="display: none;">다음 단계 →</button>
+        </div>
+
         <div class="chat-messages" id="chatMessages">
           <div class="welcome-message" id="welcomeGeneral">
             <div class="onboarding" id="onboarding">
@@ -70,6 +84,19 @@
           <div class="welcome-message" id="welcomeCode" style="display: none;">
             <p>내가 만든 코드를 배워봅시다!</p>
             <p>프로젝트를 선택하면 구조를 분석하고 소크라테스 질문으로 이해를 도와드립니다.</p>
+          </div>
+          <div class="welcome-message" id="welcomeVerify" style="display: none;">
+            <h3>에이전트 검증 학습</h3>
+            <p>7단계 구조화된 접근법으로 내가 만든 에이전트를 깊이 이해합니다.</p>
+            <div class="verify-steps-preview">
+              <div class="step-preview">1. 컴포넌트 분해</div>
+              <div class="step-preview">2. 성공 기준 정의</div>
+              <div class="step-preview">3. 코드 검증</div>
+              <div class="step-preview">4. 패턴 분석</div>
+              <div class="step-preview">5. 의존성 검토</div>
+              <div class="step-preview">6. 프롬프트 품질</div>
+              <div class="step-preview">7. 개선 로드맵</div>
+            </div>
           </div>
         </div>
 

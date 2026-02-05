@@ -10,6 +10,8 @@ const implementor = require('./agents/implementor');
 const codeAnalyzer = require('./agents/code-analyzer');
 const claudeMdParser = require('./services/claude-md-parser');
 const quizGenerator = require('./agents/quiz-generator');
+const verifier = require('./agents/verifier');
+const agentsList = require('./data/agents.json');
 
 const app = express();
 
@@ -229,6 +231,113 @@ app.post('/api/quiz', checkAuth, async (req, res) => {
     console.error('퀴즈 생성 오류:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// ============================================
+// 에이전트 검증 학습 API (7단계 프레임워크)
+// ============================================
+
+// 에이전트 목록 조회
+app.get('/api/agents', checkAuth, (req, res) => {
+  const grouped = agentsList.reduce((acc, agent) => {
+    const cat = agent.category || 'etc';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(agent);
+    return acc;
+  }, {});
+  res.json({ success: true, agents: agentsList, grouped });
+});
+
+// 검증 학습 시작
+app.post('/api/verify-start', checkAuth, async (req, res) => {
+  const { agentName, sessionId } = req.body;
+
+  const agent = agentsList.find(a => a.name === agentName);
+  if (!agent) {
+    return res.status(404).json({ error: '에이전트를 찾을 수 없습니다' });
+  }
+
+  try {
+    console.log(`\n🔍 검증 학습 시작: "${agentName}"`);
+    const result = await verifier.startVerification(agent);
+
+    // 검증 세션 저장
+    const session = {
+      mode: 'verify',
+      agent,
+      currentStep: 1,
+      history: [
+        { role: 'user', content: `"${agentName}" 에이전트를 검증하고 싶습니다.` },
+        { role: 'model', content: result.response }
+      ]
+    };
+    sessions.set(sessionId, session);
+
+    console.log('✅ 검증 1단계 시작!\n');
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('검증 시작 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 검증 대화
+app.post('/api/verify-chat', checkAuth, async (req, res) => {
+  const { message, sessionId } = req.body;
+
+  const session = sessions.get(sessionId);
+  if (!session || session.mode !== 'verify') {
+    return res.status(400).json({ error: '먼저 에이전트를 선택해주세요' });
+  }
+
+  try {
+    const result = await verifier.continueVerification(
+      session.agent,
+      session.currentStep,
+      message,
+      session.history
+    );
+
+    session.history.push({ role: 'user', content: message });
+    session.history.push({ role: 'model', content: result.response });
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('검증 대화 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 다음 검증 단계로 이동
+app.post('/api/verify-next', checkAuth, async (req, res) => {
+  const { sessionId } = req.body;
+
+  const session = sessions.get(sessionId);
+  if (!session || session.mode !== 'verify') {
+    return res.status(400).json({ error: '검증 세션이 없습니다' });
+  }
+
+  try {
+    const nextStep = session.currentStep + 1;
+    console.log(`\n➡️ 검증 ${nextStep}단계로 이동`);
+
+    const result = await verifier.nextStep(session.agent, nextStep, session.history);
+
+    if (!result.isComplete) {
+      session.currentStep = nextStep;
+      session.history.push({ role: 'model', content: result.response });
+    }
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('다음 단계 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 검증 단계 목록
+app.get('/api/verify-steps', (req, res) => {
+  res.json({ success: true, steps: verifier.getAllSteps() });
 });
 
 // Vercel 서버리스 환경 지원
