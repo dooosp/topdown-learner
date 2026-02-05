@@ -36,9 +36,7 @@ ${step.question}
 소크라테스식으로 질문하며, 사용자가 스스로 분석하도록 유도하세요.`;
 
   try {
-    const result = await model.generateContent([
-      { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
-    ]);
+    const result = await model.generateContent(systemPrompt + '\n\n' + userPrompt);
     return {
       step: 1,
       totalSteps: 7,
