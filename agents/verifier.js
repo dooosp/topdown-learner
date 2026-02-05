@@ -6,9 +6,9 @@ let genAI = null;
 
 function getModel() {
   if (!genAI) {
-    genAI = new GoogleGenerativeAI(config.geminiApiKey);
+    genAI = new GoogleGenerativeAI(config.gemini.apiKey);
   }
-  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  return genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 }
 
 /**
