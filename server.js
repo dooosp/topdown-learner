@@ -11,6 +11,8 @@ const codeAnalyzer = require('./agents/code-analyzer');
 const claudeMdParser = require('./services/claude-md-parser');
 const quizGenerator = require('./agents/quiz-generator');
 const verifier = require('./agents/verifier');
+const curriculumComposer = require('./agents/curriculum-composer');
+const store = require('./lib/store');
 const agentsList = require('./data/agents.json');
 
 const app = express();
@@ -331,6 +333,156 @@ app.post('/api/verify-next', checkAuth, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('다음 단계 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// 커리큘럼 학습 API
+// ============================================
+
+// 커리큘럼 생성
+app.post('/api/curriculum', checkAuth, async (req, res) => {
+  const { topic, useCodePatterns } = req.body;
+  if (!topic) {
+    return res.status(400).json({ error: '주제를 입력해주세요' });
+  }
+
+  try {
+    console.log(`\n📚 커리큘럼 생성: "${topic}" (코드 기반: ${!!useCodePatterns})`);
+    const curriculum = useCodePatterns
+      ? await curriculumComposer.composeFromCode(topic)
+      : await curriculumComposer.compose(topic);
+
+    const id = store.createCurriculum(
+      topic,
+      curriculum,
+      curriculum.mermaid,
+      curriculum.weeks.length
+    );
+    store.createWeeks(id, curriculum.weeks);
+
+    console.log(`✅ 커리큘럼 생성 완료 (${curriculum.weeks.length}주차)\n`);
+    res.json({ success: true, id, curriculum });
+  } catch (error) {
+    console.error('커리큘럼 생성 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 커리큘럼 목록
+app.get('/api/curricula', checkAuth, (req, res) => {
+  try {
+    const list = store.getCurricula();
+    res.json({ success: true, curricula: list });
+  } catch (error) {
+    console.error('커리큘럼 목록 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 커리큘럼 상세
+app.get('/api/curriculum/:id', checkAuth, (req, res) => {
+  try {
+    const curriculum = store.getCurriculumById(Number(req.params.id));
+    if (!curriculum) {
+      return res.status(404).json({ error: '커리큘럼을 찾을 수 없습니다' });
+    }
+    res.json({ success: true, curriculum });
+  } catch (error) {
+    console.error('커리큘럼 상세 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 주차 학습 시작
+app.post('/api/curriculum/:id/week/:week/start', checkAuth, async (req, res) => {
+  const curriculumId = Number(req.params.id);
+  const weekNumber = Number(req.params.week);
+
+  try {
+    const curriculum = store.getCurriculumById(curriculumId);
+    if (!curriculum) {
+      return res.status(404).json({ error: '커리큘럼을 찾을 수 없습니다' });
+    }
+
+    const week = curriculum.weeks.find(w => w.weekNumber === weekNumber);
+    if (!week) {
+      return res.status(404).json({ error: '해당 주차를 찾을 수 없습니다' });
+    }
+
+    // 선수과목 검증
+    if (!store.arePrerequisitesComplete(curriculumId, week.prerequisites)) {
+      return res.status(400).json({
+        error: '선수 주차를 먼저 완료해주세요',
+        incompletePrerequisites: week.prerequisites
+      });
+    }
+
+    // 상태 업데이트
+    store.updateWeekStatus(curriculumId, weekNumber, 'in_progress');
+
+    // 기존 학습 파이프라인 실행
+    const topic = week.topicForLearning;
+    console.log(`\n🎯 커리큘럼 ${weekNumber}주차 학습 시작: "${topic}"`);
+
+    const firstPrinciple = await abstractor.extract(topic);
+    const question = await socratic.inquire(topic, firstPrinciple);
+    const resources = await curator.curate(topic, firstPrinciple);
+    const mission = await implementor.createMission(topic, firstPrinciple);
+
+    const { sessionId } = req.body;
+    if (sessionId) {
+      sessions.set(sessionId, {
+        topic,
+        history: [
+          { role: 'user', content: `"${topic}"에 대해 배우고 싶습니다.` },
+          { role: 'model', content: firstPrinciple + '\n\n' + question }
+        ],
+        resources,
+        mission,
+        curriculumId,
+        weekNumber
+      });
+    }
+
+    console.log('✅ 주차 학습 준비 완료!\n');
+    res.json({
+      success: true,
+      weekNumber,
+      curriculumId,
+      firstPrinciple,
+      question,
+      resources,
+      mission
+    });
+  } catch (error) {
+    console.error('주차 시작 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 주차 완료
+app.put('/api/curriculum/:id/week/:week/complete', checkAuth, (req, res) => {
+  const curriculumId = Number(req.params.id);
+  const weekNumber = Number(req.params.week);
+
+  try {
+    store.updateWeekStatus(curriculumId, weekNumber, 'completed');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('주차 완료 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 커리큘럼 삭제
+app.delete('/api/curriculum/:id', checkAuth, (req, res) => {
+  try {
+    store.deleteCurriculum(Number(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('커리큘럼 삭제 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });

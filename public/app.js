@@ -34,6 +34,7 @@ const startCodeBtn = document.getElementById('startCodeBtn');
 const welcomeGeneral = document.getElementById('welcomeGeneral');
 const welcomeCode = document.getElementById('welcomeCode');
 const welcomeVerify = document.getElementById('welcomeVerify');
+const welcomeCurriculum = document.getElementById('welcomeCurriculum');
 const verifyInput = document.getElementById('verifyInput');
 const agentSelect = document.getElementById('agentSelect');
 const startVerifyBtn = document.getElementById('startVerifyBtn');
@@ -41,6 +42,11 @@ const verifyProgress = document.getElementById('verifyProgress');
 const currentStepEl = document.getElementById('currentStep');
 const stepTitleEl = document.getElementById('stepTitle');
 const nextStepBtn = document.getElementById('nextStepBtn');
+const curriculumInput = document.getElementById('curriculumInput');
+const curriculumOptions = document.getElementById('curriculumOptions');
+const curriculumTopicInput = document.getElementById('curriculumTopicInput');
+const createCurriculumBtn = document.getElementById('createCurriculumBtn');
+const useCodePatternsCheckbox = document.getElementById('useCodePatterns');
 
 let currentMode = 'general';
 let verifyMode = false;
@@ -101,9 +107,12 @@ modeSelector.addEventListener('click', async (e) => {
   codeInput.style.display = 'none';
   verifyInput.style.display = 'none';
   verifyProgress.style.display = 'none';
+  curriculumInput.style.display = 'none';
+  curriculumOptions.style.display = 'none';
   welcomeGeneral.style.display = 'none';
   welcomeCode.style.display = 'none';
   welcomeVerify.style.display = 'none';
+  welcomeCurriculum.style.display = 'none';
   verifyMode = false;
 
   if (mode === 'code') {
@@ -115,6 +124,12 @@ modeSelector.addEventListener('click', async (e) => {
     welcomeVerify.style.display = 'block';
     verifyMode = true;
     await loadAgents();
+  } else if (mode === 'curriculum') {
+    curriculumInput.style.display = 'flex';
+    curriculumOptions.style.display = 'flex';
+    welcomeCurriculum.style.display = 'block';
+    chatInputBox.style.display = 'none';
+    await loadCurricula();
   } else {
     generalInput.style.display = 'flex';
     welcomeGeneral.style.display = 'block';
@@ -880,6 +895,265 @@ function showVerifyActionButtons() {
   chatMessages.appendChild(div.firstElementChild);
 }
 
+// ========== 커리큘럼 학습 모드 ==========
+
+let activeCurriculumId = null;
+let activeWeekNumber = null;
+
+createCurriculumBtn.addEventListener('click', createCurriculum);
+curriculumTopicInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') createCurriculum();
+});
+
+async function createCurriculum() {
+  const topic = curriculumTopicInput.value.trim();
+  if (!topic) return;
+
+  createCurriculumBtn.disabled = true;
+  createCurriculumBtn.textContent = '생성 중...';
+  chatMessages.innerHTML = '';
+  welcomeCurriculum.style.display = 'none';
+  addLoadingMessage('AI가 커리큘럼을 설계하고 있습니다...');
+
+  try {
+    const response = await fetch('/api/curriculum', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ topic, useCodePatterns: useCodePatternsCheckbox.checked })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+    curriculumTopicInput.value = '';
+
+    const modeLabel = useCodePatternsCheckbox.checked ? ' (코드 기반 초보→고급)' : '';
+    addMessage('커리큘럼 생성 완료', `"${topic}" 커리큘럼이 ${data.curriculum.weeks.length}주차로 생성되었습니다.${modeLabel}`, 'assistant');
+
+    // 상세 보기
+    showCurriculumDetail(data.id);
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  } finally {
+    createCurriculumBtn.disabled = false;
+    createCurriculumBtn.textContent = '커리큘럼 생성';
+  }
+}
+
+async function loadCurricula() {
+  try {
+    const response = await fetch('/api/curricula', {
+      headers: { 'X-Access-Pin': accessPin }
+    });
+    const data = await response.json();
+
+    const listEl = document.getElementById('curriculumList');
+    if (!data.curricula || data.curricula.length === 0) {
+      listEl.innerHTML = '<p class="empty-state">주제를 입력하여 첫 커리큘럼을 만들어보세요</p>';
+      return;
+    }
+
+    listEl.innerHTML = data.curricula.map(c => {
+      const percent = c.totalWeeks > 0 ? Math.round((c.completedWeeks / c.totalWeeks) * 100) : 0;
+      return `
+        <div class="curriculum-card" onclick="showCurriculumDetail(${c.id})">
+          <div class="curriculum-card-header">
+            <span class="curriculum-topic">${c.topic}</span>
+            <button class="curriculum-delete-btn" onclick="event.stopPropagation(); deleteCurriculum(${c.id})" title="삭제">&times;</button>
+          </div>
+          <div class="curriculum-progress-bar">
+            <div class="curriculum-progress-fill" style="width: ${percent}%"></div>
+          </div>
+          <div class="curriculum-meta">
+            <span>${c.completedWeeks}/${c.totalWeeks}주차 완료</span>
+            <span>${new Date(c.createdAt).toLocaleDateString('ko-KR')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('커리큘럼 목록 로드 실패:', error);
+  }
+}
+
+async function showCurriculumDetail(id) {
+  try {
+    const response = await fetch(`/api/curriculum/${id}`, {
+      headers: { 'X-Access-Pin': accessPin }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    const c = data.curriculum;
+    activeCurriculumId = c.id;
+    chatMessages.innerHTML = '';
+    welcomeCurriculum.style.display = 'none';
+
+    // Mermaid DAG
+    if (c.mermaid) {
+      const mermaidDiv = document.createElement('div');
+      mermaidDiv.className = 'mermaid-container';
+      mermaidDiv.innerHTML = `<pre class="mermaid">${c.mermaid}</pre>`;
+      chatMessages.appendChild(mermaidDiv);
+      try { await mermaid.run({ nodes: mermaidDiv.querySelectorAll('.mermaid') }); } catch (_) { /* mermaid parse error — ignore */ }
+    }
+
+    // 주차 카드 렌더링
+    const weeksHtml = c.weeks.map(w => {
+      const isLocked = w.prerequisites.length > 0 &&
+        w.prerequisites.some(p => {
+          const pw = c.weeks.find(wk => wk.weekNumber === p);
+          return pw && pw.status !== 'completed';
+        });
+      const statusClass = w.status === 'completed' ? 'completed' : w.status === 'in_progress' ? 'in-progress' : (isLocked ? 'locked' : 'pending');
+      const statusLabel = w.status === 'completed' ? '완료' : w.status === 'in_progress' ? '진행 중' : (isLocked ? '잠김' : '대기');
+
+      return `
+        <div class="week-card ${statusClass}">
+          <div class="week-card-header">
+            <span class="week-number">${w.weekNumber}주차</span>
+            <span class="week-status-badge ${statusClass}">${statusLabel}</span>
+          </div>
+          <h4 class="week-title">${w.title}</h4>
+          <div class="week-objectives">
+            ${w.objectives.map(o => `<span class="week-tag">${o}</span>`).join('')}
+          </div>
+          <div class="week-concepts">
+            ${w.concepts.map(co => `<span class="concept-tag">${co}</span>`).join('')}
+          </div>
+          ${w.prerequisites.length > 0 ? `<div class="week-prereqs">선수: ${w.prerequisites.map(p => p + '주차').join(', ')}</div>` : ''}
+          <div class="week-actions">
+            ${w.status === 'completed' ? '' :
+              w.status === 'in_progress' ?
+                `<button class="week-btn complete" onclick="completeWeek(${c.id}, ${w.weekNumber})">완료 처리</button>` :
+                (isLocked ? '' : `<button class="week-btn start" onclick="startWeek(${c.id}, ${w.weekNumber})">학습 시작</button>`)
+            }
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const detailDiv = document.createElement('div');
+    detailDiv.className = 'curriculum-detail';
+    detailDiv.innerHTML = `
+      <div class="curriculum-detail-header">
+        <button class="back-btn" onclick="backToCurriculumList()">← 목록으로</button>
+        <h3>${c.topic}</h3>
+      </div>
+      <div class="weeks-grid">${weeksHtml}</div>
+    `;
+    chatMessages.appendChild(detailDiv);
+
+    // 리소스 패널에 진행 요약 표시
+    const completed = c.weeks.filter(w => w.status === 'completed').length;
+    const percent = Math.round((completed / c.totalWeeks) * 100);
+    videoList.innerHTML = `
+      <div class="curriculum-summary">
+        <div class="summary-stat"><strong>${completed}</strong>/${c.totalWeeks} 주차 완료</div>
+        <div class="curriculum-progress-bar large">
+          <div class="curriculum-progress-fill" style="width: ${percent}%"></div>
+        </div>
+        <div class="summary-stat">${percent}% 진행</div>
+      </div>
+    `;
+    articleList.innerHTML = '<p class="empty-state">커리큘럼 학습 모드</p>';
+
+  } catch (error) {
+    addMessage('오류', error.message, 'assistant');
+  }
+}
+
+async function startWeek(curriculumId, weekNumber) {
+  chatMessages.innerHTML = '';
+  addLoadingMessage(`${weekNumber}주차 학습을 준비하고 있습니다...`);
+  activeWeekNumber = weekNumber;
+  activeCurriculumId = curriculumId;
+
+  try {
+    const response = await fetch(`/api/curriculum/${curriculumId}/week/${weekNumber}/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({ sessionId })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    removeLoading();
+
+    currentTopic = data.firstPrinciple ? `커리큘럼 ${weekNumber}주차` : '';
+    chatHistory = [];
+
+    addMessageWithSave('제1원리 (Big Picture)', data.firstPrinciple, 'assistant');
+    setTimeout(() => {
+      addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
+      // 주차 완료/돌아가기 버튼
+      const btnsDiv = document.createElement('div');
+      btnsDiv.className = 'action-buttons';
+      btnsDiv.innerHTML = `
+        <button class="action-btn" onclick="completeWeek(${curriculumId}, ${weekNumber})">이 주차 완료</button>
+        <button class="action-btn" onclick="showCurriculumDetail(${curriculumId})">커리큘럼으로 돌아가기</button>
+        <button class="action-btn" onclick="startQuiz()">퀴즈 풀기</button>
+      `;
+      chatMessages.appendChild(btnsDiv);
+    }, 500);
+
+    displayResources(data.resources);
+    displayMission(data.mission);
+
+    chatInputBox.style.display = 'flex';
+    chatInput.focus();
+
+  } catch (error) {
+    removeLoading();
+    addMessage('오류', error.message, 'assistant');
+  }
+}
+
+async function completeWeek(curriculumId, weekNumber) {
+  try {
+    await fetch(`/api/curriculum/${curriculumId}/week/${weekNumber}/complete`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      }
+    });
+    addMessage('완료', `${weekNumber}주차 학습을 완료했습니다!`, 'assistant');
+    setTimeout(() => showCurriculumDetail(curriculumId), 1000);
+  } catch (error) {
+    addMessage('오류', error.message, 'assistant');
+  }
+}
+
+async function deleteCurriculum(id) {
+  if (!confirm('이 커리큘럼을 삭제하시겠습니까?')) return;
+  try {
+    await fetch(`/api/curriculum/${id}`, {
+      method: 'DELETE',
+      headers: { 'X-Access-Pin': accessPin }
+    });
+    loadCurricula();
+  } catch (error) {
+    console.error('삭제 실패:', error);
+  }
+}
+
+function backToCurriculumList() {
+  chatMessages.innerHTML = '';
+  welcomeCurriculum.style.display = 'block';
+  chatInputBox.style.display = 'none';
+  loadCurricula();
+}
+
 // 전송 버튼 - 모드에 따라 분기
 const originalSendClick = sendBtn.onclick;
 sendBtn.onclick = null;
@@ -887,7 +1161,7 @@ sendBtn.addEventListener('click', () => {
   if (verifyMode) {
     sendVerifyMessage();
   } else {
-    sendMessage();
+    sendChat();
   }
 });
 
@@ -898,7 +1172,7 @@ chatInput.addEventListener('keypress', (e) => {
     if (verifyMode) {
       sendVerifyMessage();
     } else {
-      sendMessage();
+      sendChat();
     }
   }
 });

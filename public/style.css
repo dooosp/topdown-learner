@@ -933,3 +933,304 @@ body {
 .message.hint .label {
   color: #f1c40f;
 }
+
+/* ========== 커리큘럼 모드 ========== */
+
+.curriculum-options {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.code-pattern-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #aaa;
+  padding: 6px 12px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.code-pattern-toggle:hover {
+  border-color: #667eea;
+  color: #ccc;
+}
+
+.code-pattern-toggle input[type="checkbox"] {
+  accent-color: #667eea;
+  width: 16px;
+  height: 16px;
+}
+
+.curriculum-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+  text-align: left;
+}
+
+.curriculum-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.curriculum-card:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.curriculum-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.curriculum-topic {
+  font-weight: 600;
+  color: #eee;
+}
+
+.curriculum-delete-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.curriculum-delete-btn:hover {
+  color: #e74c3c;
+}
+
+.curriculum-progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.curriculum-progress-bar.large {
+  height: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+}
+
+.curriculum-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #2ecc71);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.curriculum-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* 커리큘럼 상세 */
+.curriculum-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.curriculum-detail-header h3 {
+  color: #667eea;
+}
+
+.back-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Mermaid */
+.mermaid-container {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+/* 주차 카드 그리드 */
+.weeks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.week-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 15px;
+  border-left: 4px solid #555;
+  transition: all 0.2s;
+}
+
+.week-card.pending {
+  border-left-color: #667eea;
+}
+
+.week-card.in-progress {
+  border-left-color: #f1c40f;
+  background: rgba(241, 196, 15, 0.05);
+}
+
+.week-card.completed {
+  border-left-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.05);
+}
+
+.week-card.locked {
+  border-left-color: #555;
+  opacity: 0.5;
+}
+
+.week-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.week-number {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 600;
+}
+
+.week-status-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.week-status-badge.pending { background: rgba(102, 126, 234, 0.2); color: #667eea; }
+.week-status-badge.in-progress { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+.week-status-badge.completed { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.week-status-badge.locked { background: rgba(255, 255, 255, 0.1); color: #888; }
+
+.week-title {
+  font-size: 0.95rem;
+  color: #eee;
+  margin-bottom: 10px;
+}
+
+.week-objectives, .week-concepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.week-tag {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  background: rgba(102, 126, 234, 0.15);
+  border-radius: 6px;
+  color: #a8b4f0;
+}
+
+.concept-tag {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  background: rgba(118, 75, 162, 0.15);
+  border-radius: 6px;
+  color: #c4a4e0;
+}
+
+.week-prereqs {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.week-actions {
+  margin-top: 10px;
+}
+
+.week-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.week-btn.start {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+
+.week-btn.start:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.week-btn.complete {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  color: #fff;
+}
+
+.week-btn.complete:hover {
+  opacity: 0.9;
+}
+
+/* 커리큘럼 진행 요약 */
+.curriculum-summary {
+  padding: 10px;
+}
+
+.summary-stat {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #ccc;
+  margin: 5px 0;
+}
+
+.summary-stat strong {
+  color: #2ecc71;
+  font-size: 1.2rem;
+}
+
+/* 반응형 - 커리큘럼 */
+@media (max-width: 600px) {
+  .weeks-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .curriculum-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
