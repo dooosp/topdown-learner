@@ -51,7 +51,7 @@ async function fetchRepoStructure(repo) {
     const response = await fetch(url, { headers: getGitHubHeaders() });
     if (!response.ok) return [];
     return await response.json();
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -60,7 +60,7 @@ async function fetchRepoStructure(repo) {
  * 프로젝트 분석 (GitHub 기반)
  */
 async function analyze(project) {
-  const { name, github, mainFiles, folders } = project;
+  const { name, github, mainFiles } = project;
 
   // 주요 파일들 가져오기
   const fileContents = {};
