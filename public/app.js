@@ -6,6 +6,8 @@ let accessPin = localStorage.getItem('accessPin') || '';
 
 // 학습 진도 저장 키
 const PROGRESS_KEY = 'topdown_progress';
+const BOOKMARK_KEY = 'topdown_bookmarks';
+const THEME_KEY = 'topdown_theme';
 let currentTopic = '';
 let chatHistory = [];
 
@@ -24,6 +26,26 @@ const videoList = document.getElementById('videoList');
 const articleList = document.getElementById('articleList');
 const missionSection = document.getElementById('missionSection');
 const missionContent = document.getElementById('missionContent');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const voiceBtn = document.getElementById('voiceBtn');
+const bookmarkList = document.getElementById('bookmarkList');
+const statsCards = document.getElementById('statsCards');
+const quizTrendCanvas = document.getElementById('quizTrendChart');
+
+// 도움말/내보내기/공유 모달
+const shortcutHelp = document.getElementById('shortcutHelp');
+const shortcutCloseBtn = document.getElementById('shortcutCloseBtn');
+const exportModal = document.getElementById('exportModal');
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const exportMdBtn = document.getElementById('exportMdBtn');
+const exportObsidianBtn = document.getElementById('exportObsidianBtn');
+const exportCloseBtn = document.getElementById('exportCloseBtn');
+const shareModal = document.getElementById('shareModal');
+const shareUrlInput = document.getElementById('shareUrlInput');
+const copyShareBtn = document.getElementById('copyShareBtn');
+const shareXLink = document.getElementById('shareXLink');
+const shareLinkedInLink = document.getElementById('shareLinkedInLink');
+const shareCloseBtn = document.getElementById('shareCloseBtn');
 
 // 모드 관련 요소
 const modeSelector = document.getElementById('modeSelector');
@@ -67,6 +89,127 @@ const switchModal = document.getElementById('switchModal');
 const switchConfirmBtn = document.getElementById('switchConfirmBtn');
 const switchCancelBtn = document.getElementById('switchCancelBtn');
 let pendingModeSwitch = null; // { mode, target }
+let quizTrendChart = null;
+let speechRecognition = null;
+let isRecording = false;
+const sharedSessionId = window.location.pathname.startsWith('/shared/')
+  ? decodeURIComponent(window.location.pathname.replace('/shared/', ''))
+  : null;
+const isSharedView = Boolean(sharedSessionId);
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripHtml(value) {
+  return String(value ?? '').replace(/<[^>]*>/g, '');
+}
+
+function sanitizeUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl, window.location.origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return '#';
+    }
+    return url.toString();
+  } catch {
+    return '#';
+  }
+}
+
+function normalizeFilename(value) {
+  return String(value ?? 'note').replace(/[^a-zA-Z0-9가-힣_-]/g, '_');
+}
+
+function toggleModal(modalEl, shouldShow) {
+  if (!modalEl) return;
+  modalEl.style.display = shouldShow ? 'flex' : 'none';
+}
+
+function getMermaidTheme(theme) {
+  return theme === 'light' ? 'default' : 'dark';
+}
+
+function applyTheme(theme, { persist = true } = {}) {
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = nextTheme;
+
+  if (persist) {
+    localStorage.setItem(THEME_KEY, nextTheme);
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.textContent = nextTheme === 'light' ? '☾' : '☀︎';
+    themeToggleBtn.setAttribute('aria-label', nextTheme === 'light' ? '다크 모드 전환' : '라이트 모드 전환');
+  }
+
+  if (window.mermaid?.initialize) {
+    window.mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme(nextTheme) });
+    if (currentMode === 'curriculum' && activeCurriculumId) {
+      showCurriculumDetail(activeCurriculumId);
+    }
+  }
+
+  renderStats();
+}
+
+function initTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme) {
+    applyTheme(savedTheme, { persist: false });
+    return;
+  }
+  const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(prefersLight ? 'light' : 'dark', { persist: false });
+}
+
+function closeAllModals() {
+  if (pendingModeSwitch) {
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === currentMode);
+    });
+    pendingModeSwitch = null;
+  }
+  toggleModal(switchModal, false);
+  toggleModal(shortcutHelp, false);
+  toggleModal(exportModal, false);
+  toggleModal(shareModal, false);
+}
+
+function shouldUseChatInput() {
+  return chatInputBox.style.display !== 'none' && currentMode !== 'curriculum';
+}
+
+function focusPrimaryInput() {
+  if (!pinModal.classList.contains('hidden')) {
+    pinInput.focus();
+    return;
+  }
+
+  if (shouldUseChatInput()) {
+    chatInput.focus();
+    return;
+  }
+
+  if (currentMode === 'code') {
+    projectSelect.focus();
+    return;
+  }
+  if (currentMode === 'verify') {
+    agentSelect.focus();
+    return;
+  }
+  if (currentMode === 'curriculum') {
+    curriculumTopicInput.focus();
+    return;
+  }
+  topicInput.focus();
+}
 
 // ========== 진행률 바 ==========
 function updateProgressBar(topic, step, total) {
@@ -112,6 +255,97 @@ function showResourceBadge() {
   resourceTab.appendChild(badge);
 }
 
+function toggleShortcutHelp(forceOpen) {
+  const isOpen = shortcutHelp.style.display === 'flex';
+  const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : !isOpen;
+  toggleModal(shortcutHelp, nextOpen);
+}
+
+function switchModeByIndex(index) {
+  const modeMap = ['general', 'code', 'verify', 'curriculum'];
+  const mode = modeMap[index];
+  if (!mode) return;
+  const button = modeSelector.querySelector(`[data-mode="${mode}"]`);
+  if (button) {
+    button.click();
+  }
+}
+
+async function moveVerifyStep(delta) {
+  if (!verifyMode || !currentTopic.startsWith('검증:')) return;
+  const currentStep = Number(currentStepEl.textContent || '1');
+  const targetStep = Math.min(7, Math.max(1, currentStep + delta));
+  if (targetStep === currentStep) return;
+  await goToStep(targetStep);
+}
+
+function handleShortcut(event) {
+  const key = event.key.toLowerCase();
+  const isCtrl = event.ctrlKey || event.metaKey;
+
+  if (isCtrl && key === 'k') {
+    event.preventDefault();
+    focusPrimaryInput();
+    return;
+  }
+
+  if (isCtrl && ['1', '2', '3', '4'].includes(key)) {
+    event.preventDefault();
+    switchModeByIndex(Number(key) - 1);
+    return;
+  }
+
+  if (isCtrl && key === '/') {
+    event.preventDefault();
+    toggleShortcutHelp();
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    closeAllModals();
+    return;
+  }
+
+  if (event.altKey && event.key === 'ArrowRight') {
+    event.preventDefault();
+    moveVerifyStep(1);
+    return;
+  }
+
+  if (event.altKey && event.key === 'ArrowLeft') {
+    event.preventDefault();
+    moveVerifyStep(-1);
+  }
+}
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    const activeTheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    applyTheme(activeTheme === 'light' ? 'dark' : 'light');
+  });
+}
+
+if (shortcutCloseBtn) {
+  shortcutCloseBtn.addEventListener('click', () => toggleShortcutHelp(false));
+}
+document.addEventListener('keydown', handleShortcut);
+
+if (exportPdfBtn) exportPdfBtn.addEventListener('click', async () => { await exportPDF(); toggleModal(exportModal, false); });
+if (exportMdBtn) exportMdBtn.addEventListener('click', () => { exportMarkdown(); toggleModal(exportModal, false); });
+if (exportObsidianBtn) exportObsidianBtn.addEventListener('click', () => { exportObsidian(); toggleModal(exportModal, false); });
+if (exportCloseBtn) exportCloseBtn.addEventListener('click', () => toggleModal(exportModal, false));
+if (shareCloseBtn) shareCloseBtn.addEventListener('click', () => toggleModal(shareModal, false));
+if (copyShareBtn) copyShareBtn.addEventListener('click', copyShareLink);
+
+[shortcutHelp, exportModal, shareModal].forEach((modal) => {
+  if (!modal) return;
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      toggleModal(modal, false);
+    }
+  });
+});
+
 // ========== 모드 전환 경고 ==========
 switchConfirmBtn.addEventListener('click', () => {
   switchModal.style.display = 'none';
@@ -131,7 +365,9 @@ switchCancelBtn.addEventListener('click', () => {
 });
 
 // PIN 검증
-if (accessPin) {
+if (isSharedView) {
+  pinModal.classList.add('hidden');
+} else if (accessPin) {
   pinModal.classList.add('hidden');
 }
 
@@ -286,6 +522,7 @@ async function startCodeLearning() {
     // 진도 저장 초기화
     currentTopic = `코드: ${projectName}`;
     chatHistory = [];
+    recordLearningSession(currentTopic, 'code');
 
     updateProgressBar(projectName, 1, 3);
 
@@ -300,11 +537,14 @@ async function startCodeLearning() {
     updateProgressBar(projectName, 3, 3);
 
     // 리소스 패널에 GitHub 링크 표시
-    videoList.innerHTML = `<a href="${data.github}" target="_blank" class="article-card">
-      <div class="article-title">GitHub 저장소</div>
-      <div class="article-snippet">${data.github}</div>
-    </a>`;
+    videoList.innerHTML = renderResourceCard({
+      type: 'article',
+      title: 'GitHub 저장소',
+      link: data.github,
+      snippet: data.github
+    });
     articleList.innerHTML = '<p class="empty-state">코드 학습 모드</p>';
+    bindBookmarkButtons(videoList);
 
     chatInputBox.style.display = 'flex';
     chatInput.focus();
@@ -371,6 +611,7 @@ async function startLearning() {
     // 진도 저장 초기화
     currentTopic = topic;
     chatHistory = [];
+    recordLearningSession(currentTopic, 'general');
 
     // 진행률 바: 원리추출(1) → 질문(2) → 자료(3) → 미션(4)
     updateProgressBar(topic, 1, 4);
@@ -406,11 +647,7 @@ async function startLearning() {
   }
 }
 
-// 대화 전송
-sendBtn.addEventListener('click', sendChat);
-chatInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') sendChat();
-});
+// 대화 전송 이벤트는 파일 하단에서 모드별로 분기 처리
 
 async function sendChat() {
   const message = chatInput.value.trim();
@@ -455,25 +692,66 @@ async function sendChat() {
   }
 }
 
+function highlightCode(container) {
+  if (window.Prism?.highlightAllUnder) {
+    window.Prism.highlightAllUnder(container);
+  }
+}
+
 // 메시지 추가
-function addMessage(label, content, type) {
+function addMessage(label, content, type, options = {}) {
+  const { rawHtml = false } = options;
   const div = document.createElement('div');
   div.className = `message ${type}`;
+  const renderedContent = rawHtml ? String(content ?? '') : formatContent(content);
   div.innerHTML = `
-    <div class="message-label">${label}</div>
-    <div class="message-content">${formatContent(content)}</div>
+    <div class="message-label">${escapeHtml(label)}</div>
+    <div class="message-content">${renderedContent}</div>
   `;
   chatMessages.appendChild(div);
+  highlightCode(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 마크다운 기본 변환
-function formatContent(text) {
+function normalizeCodeLanguage(language) {
+  if (!language) return 'plaintext';
+  const lang = language.toLowerCase();
+  if (lang === 'js') return 'javascript';
+  if (lang === 'ts') return 'typescript';
+  if (lang === 'md') return 'markdown';
+  return lang;
+}
+
+function formatInlineMarkdown(text) {
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br>');
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+// 마크다운 변환 (fenced code block + inline)
+function formatContent(text) {
+  const source = String(text ?? '');
+  const codeBlocks = [];
+  const withPlaceholders = source.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (match, lang = '', code = '') => {
+    const token = `@@CODEBLOCK_${codeBlocks.length}@@`;
+    codeBlocks.push({
+      language: normalizeCodeLanguage(lang),
+      code: String(code).replace(/\n$/, '')
+    });
+    return token;
+  });
+
+  let html = escapeHtml(withPlaceholders);
+  html = formatInlineMarkdown(html).replace(/\n/g, '<br>');
+
+  codeBlocks.forEach((block, index) => {
+    const token = `@@CODEBLOCK_${index}@@`;
+    const replacement = `<pre class="code-block"><code class="language-${escapeHtml(block.language)}">${escapeHtml(block.code)}</code></pre>`;
+    html = html.replace(token, replacement);
+  });
+
+  return html;
 }
 
 // 로딩 메시지
@@ -494,64 +772,347 @@ function removeLoading() {
   if (loading) loading.remove();
 }
 
+function loadBookmarks() {
+  try {
+    const saved = localStorage.getItem(BOOKMARK_KEY);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveBookmarks(bookmarks) {
+  localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bookmarks));
+}
+
+function isBookmarked(link) {
+  return loadBookmarks().some(item => item.link === link);
+}
+
+function buildBookmarkPayload(resource) {
+  return encodeURIComponent(JSON.stringify(resource));
+}
+
+function renderBookmarkButton(resource) {
+  const active = isBookmarked(resource.link);
+  return `
+    <button class="bookmark-btn ${active ? 'active' : ''}" data-bookmark="${buildBookmarkPayload(resource)}" title="북마크">
+      ${active ? '★' : '☆'}
+    </button>
+  `;
+}
+
+function bindBookmarkButtons(container) {
+  container.querySelectorAll('.bookmark-btn').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rawPayload = button.getAttribute('data-bookmark');
+      if (!rawPayload) return;
+      try {
+        const resource = JSON.parse(decodeURIComponent(rawPayload));
+        toggleBookmark(resource);
+      } catch (error) {
+        console.error('북마크 파싱 실패:', error);
+      }
+    });
+  });
+}
+
+function toggleBookmark(resource) {
+  const bookmarks = loadBookmarks();
+  const index = bookmarks.findIndex(item => item.link === resource.link);
+  if (index >= 0) {
+    bookmarks.splice(index, 1);
+  } else {
+    bookmarks.unshift({
+      ...resource,
+      topic: currentTopic || resource.topic || '일반',
+      date: new Date().toISOString()
+    });
+  }
+  saveBookmarks(bookmarks.slice(0, 100));
+  renderBookmarks();
+  renderStats();
+  refreshResourceBookmarks();
+}
+
+function refreshResourceBookmarks() {
+  const cards = [videoList, articleList];
+  cards.forEach((container) => {
+    container.querySelectorAll('.bookmark-btn').forEach((button) => {
+      const rawPayload = button.getAttribute('data-bookmark');
+      if (!rawPayload) return;
+      try {
+        const resource = JSON.parse(decodeURIComponent(rawPayload));
+        const active = isBookmarked(resource.link);
+        button.classList.toggle('active', active);
+        button.textContent = active ? '★' : '☆';
+      } catch {
+        // ignore
+      }
+    });
+  });
+}
+
+function renderBookmarks() {
+  const bookmarks = loadBookmarks();
+  if (!bookmarks.length) {
+    bookmarkList.innerHTML = '<p class="empty-state">북마크한 자료가 없습니다</p>';
+    return;
+  }
+
+  bookmarkList.innerHTML = bookmarks.map(item => `
+    <div class="resource-card-wrap">
+      <a href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener noreferrer" class="article-card">
+        <div class="article-title">${escapeHtml(item.title)}</div>
+        <div class="article-snippet">${escapeHtml(item.topic || '')}${item.date ? ` · ${new Date(item.date).toLocaleDateString('ko-KR')}` : ''}</div>
+      </a>
+      ${renderBookmarkButton(item)}
+    </div>
+  `).join('');
+
+  bindBookmarkButtons(bookmarkList);
+}
+
+function renderResourceCard(resource) {
+  const base = {
+    title: resource.title,
+    link: resource.link,
+    type: resource.type,
+    topic: currentTopic
+  };
+  if (resource.type === 'video') {
+    return `
+      <div class="resource-card-wrap">
+        <a href="${sanitizeUrl(resource.link)}" target="_blank" rel="noopener noreferrer" class="video-card">
+          <img src="${escapeHtml(resource.thumbnail || '')}" alt="" class="video-thumbnail">
+          <div class="video-info">
+            <div class="video-title">${escapeHtml(resource.title)}</div>
+            <div class="video-channel">${escapeHtml(resource.channel || '')}</div>
+          </div>
+        </a>
+        ${renderBookmarkButton(base)}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="resource-card-wrap">
+      <a href="${sanitizeUrl(resource.link)}" target="_blank" rel="noopener noreferrer" class="article-card">
+        <div class="article-title">${escapeHtml(resource.title)}</div>
+        <div class="article-snippet">${escapeHtml(resource.snippet || '')}</div>
+      </a>
+      ${renderBookmarkButton(base)}
+    </div>
+  `;
+}
+
 // 리소스 표시
 function displayResources(resources) {
+  const safeResources = resources || {};
   // 비디오
-  if (resources.videos && resources.videos.length > 0) {
-    videoList.innerHTML = resources.videos.map(video => `
-      <a href="${video.link}" target="_blank" class="video-card">
-        <img src="${video.thumbnail}" alt="" class="video-thumbnail">
-        <div class="video-info">
-          <div class="video-title">${video.title}</div>
-          <div class="video-channel">${video.channel}</div>
-        </div>
-      </a>
-    `).join('');
+  if (safeResources.videos && safeResources.videos.length > 0) {
+    videoList.innerHTML = safeResources.videos.map(video => renderResourceCard({
+      type: 'video',
+      title: video.title,
+      link: video.link,
+      channel: video.channel,
+      thumbnail: video.thumbnail
+    })).join('');
   } else {
     videoList.innerHTML = '<p class="empty-state">관련 영상을 찾지 못했습니다</p>';
   }
 
   // 아티클
-  if (resources.articles && resources.articles.length > 0) {
-    articleList.innerHTML = resources.articles.map(article => `
-      <a href="${article.link}" target="_blank" class="article-card">
-        <div class="article-title">${article.title}</div>
-        <div class="article-snippet">${article.snippet || ''}</div>
-      </a>
-    `).join('');
+  if (safeResources.articles && safeResources.articles.length > 0) {
+    articleList.innerHTML = safeResources.articles.map(article => renderResourceCard({
+      type: 'article',
+      title: article.title,
+      link: article.link,
+      snippet: article.snippet || ''
+    })).join('');
   } else {
     articleList.innerHTML = '<p class="empty-state">관련 자료를 찾지 못했습니다</p>';
   }
+
+  bindBookmarkButtons(videoList);
+  bindBookmarkButtons(articleList);
 }
 
 // 미션 표시
 function displayMission(mission) {
   missionSection.style.display = 'block';
   missionContent.innerHTML = formatContent(mission);
+  highlightCode(missionContent);
 }
 
 // ========== 학습 진도 저장 ==========
 
 function saveProgress() {
-  const progress = {
-    topic: currentTopic,
-    mode: currentMode,
-    chatHistory: chatHistory,
-    lastUpdated: new Date().toISOString()
-  };
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  updateStoredProgress((progress) => {
+    progress.topic = currentTopic;
+    progress.mode = currentMode;
+    progress.chatHistory = chatHistory;
+    progress.lastUpdated = new Date().toISOString();
+  });
+  renderStats();
 }
 
 function loadProgress() {
-  const saved = localStorage.getItem(PROGRESS_KEY);
-  if (!saved) return null;
-  return JSON.parse(saved);
+  try {
+    const saved = localStorage.getItem(PROGRESS_KEY);
+    if (!saved) return null;
+    const progress = JSON.parse(saved);
+    if (!progress || typeof progress !== 'object') return null;
+    return progress;
+  } catch {
+    return null;
+  }
+}
+
+function updateStoredProgress(mutator) {
+  const progress = loadProgress() || {};
+  progress.chatHistory = Array.isArray(progress.chatHistory) ? progress.chatHistory : [];
+  progress.quizScores = Array.isArray(progress.quizScores) ? progress.quizScores : [];
+  progress.learningHistory = Array.isArray(progress.learningHistory) ? progress.learningHistory : [];
+  mutator(progress);
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  return progress;
 }
 
 function clearProgress() {
   localStorage.removeItem(PROGRESS_KEY);
   currentTopic = '';
   chatHistory = [];
+  renderStats();
+}
+
+function recordLearningSession(topic, mode) {
+  if (!topic) return;
+  updateStoredProgress((progress) => {
+    const history = progress.learningHistory || [];
+    const today = new Date().toISOString().slice(0, 10);
+    const hasTodayEntry = history.some(item => item.topic === topic && item.mode === mode && String(item.date).startsWith(today));
+    if (!hasTodayEntry) {
+      history.unshift({
+        topic,
+        mode,
+        date: new Date().toISOString()
+      });
+      progress.learningHistory = history.slice(0, 300);
+    }
+  });
+  renderStats();
+}
+
+function dateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function calculateLearningStreak(items) {
+  if (!items.length) return 0;
+  const daySet = new Set(items.map(item => dateKey(item.date)).filter(Boolean));
+  let streak = 0;
+  const cursor = new Date();
+  while (daySet.has(dateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderQuizTrendChart(quizScores) {
+  if (!quizTrendCanvas || !window.Chart) return;
+  if (quizTrendChart) {
+    quizTrendChart.destroy();
+    quizTrendChart = null;
+  }
+
+  if (!quizScores.length) {
+    quizTrendCanvas.style.display = 'none';
+    return;
+  }
+  quizTrendCanvas.style.display = 'block';
+
+  const computed = getComputedStyle(document.documentElement);
+  const accent = computed.getPropertyValue('--accent').trim() || '#667eea';
+  const textColor = computed.getPropertyValue('--text-muted').trim() || '#888';
+  const labels = quizScores.map(item => new Date(item.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }));
+  const values = quizScores.map(item => Math.round((item.score / item.total) * 100));
+  const ctx = quizTrendCanvas.getContext('2d');
+
+  quizTrendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '퀴즈 점수(%)',
+        data: values,
+        borderColor: accent,
+        backgroundColor: `${accent}33`,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, maxTicksLimit: 6 },
+          grid: { display: false }
+        },
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { color: textColor, callback: (value) => `${value}%` },
+          grid: { color: `${accent}22` }
+        }
+      }
+    }
+  });
+}
+
+function renderStats() {
+  if (!statsCards) return;
+
+  const progress = loadProgress() || {};
+  const history = Array.isArray(progress.learningHistory) ? progress.learningHistory : [];
+  const quizScores = Array.isArray(progress.quizScores) ? progress.quizScores : [];
+
+  const uniqueTopics = new Set(history.map(item => item.topic).filter(Boolean));
+  const avgScore = quizScores.length
+    ? Math.round(quizScores.reduce((sum, item) => sum + (item.score / item.total) * 100, 0) / quizScores.length)
+    : 0;
+  const streak = calculateLearningStreak(history);
+
+  statsCards.innerHTML = `
+    <div class="stat-card">
+      <span class="stat-label">학습 주제</span>
+      <span class="stat-value">${uniqueTopics.size}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">퀴즈 평균</span>
+      <span class="stat-value">${avgScore}%</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">연속 학습일</span>
+      <span class="stat-value">${streak}일</span>
+    </div>
+  `;
+
+  renderQuizTrendChart(quizScores.slice(-14));
 }
 
 function showResumePrompt() {
@@ -609,8 +1170,100 @@ function addMessageWithSave(label, content, type) {
   saveProgress();
 }
 
+function initVoiceInput() {
+  if (!voiceBtn) return;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    voiceBtn.style.display = 'none';
+    return;
+  }
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.lang = 'ko-KR';
+  speechRecognition.interimResults = true;
+  speechRecognition.continuous = false;
+
+  speechRecognition.onstart = () => {
+    isRecording = true;
+    voiceBtn.classList.add('recording');
+    voiceBtn.textContent = '⏺';
+  };
+
+  speechRecognition.onend = () => {
+    isRecording = false;
+    voiceBtn.classList.remove('recording');
+    voiceBtn.textContent = '🎤';
+  };
+
+  speechRecognition.onresult = (event) => {
+    const transcript = Array.from(event.results).map(result => result[0].transcript).join('');
+    chatInput.value = transcript.trim();
+    chatInput.focus();
+  };
+
+  speechRecognition.onerror = () => {
+    isRecording = false;
+    voiceBtn.classList.remove('recording');
+    voiceBtn.textContent = '🎤';
+  };
+
+  voiceBtn.addEventListener('click', () => {
+    if (isRecording) {
+      speechRecognition.stop();
+    } else {
+      speechRecognition.start();
+    }
+  });
+}
+
+async function loadSharedSession() {
+  if (!isSharedView) return;
+
+  pinModal.classList.add('hidden');
+  modeSelector.style.display = 'none';
+  generalInput.style.display = 'none';
+  codeInput.style.display = 'none';
+  verifyInput.style.display = 'none';
+  curriculumInput.style.display = 'none';
+  curriculumOptions.style.display = 'none';
+  verifyProgress.style.display = 'none';
+  topicChips.style.display = 'none';
+  resourcePanel.style.display = 'none';
+  chatInputBox.style.display = 'none';
+  chatMessages.innerHTML = '';
+  hideProgressBar();
+  document.querySelector('.subtitle').textContent = '읽기 전용 공유 노트';
+
+  try {
+    const response = await fetch(`/api/shared/${encodeURIComponent(sharedSessionId)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    currentTopic = data.shared.topic;
+    chatHistory = Array.isArray(data.shared.chatHistory) ? data.shared.chatHistory : [];
+
+    addMessage('공유 노트', `**${currentTopic}**\n\n생성일: ${new Date(data.shared.createdAt).toLocaleString('ko-KR')}`, 'assistant');
+    chatHistory.forEach((msg) => {
+      addMessage(msg.label || '메시지', msg.content || '', msg.type || 'assistant');
+    });
+  } catch (error) {
+    addMessage('오류', `공유 노트를 불러오지 못했습니다: ${error.message}`, 'assistant');
+  }
+}
+
 // 페이지 로드 시 진도 확인
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+  renderBookmarks();
+  renderStats();
+  initVoiceInput();
+
+  if (isSharedView) {
+    await loadSharedSession();
+    return;
+  }
+
   setTimeout(() => {
     if (!pinModal.classList.contains('hidden')) return;
     showResumePrompt();
@@ -745,13 +1398,19 @@ function showQuizResult() {
     </div>
   `;
 
-  addMessage('퀴즈 결과', resultHtml, 'assistant');
+  addMessage('퀴즈 결과', resultHtml, 'assistant', { rawHtml: true });
 
   // 점수 저장
-  const progress = loadProgress() || {};
-  progress.quizScores = progress.quizScores || [];
-  progress.quizScores.push({ date: new Date().toISOString(), score: quizScore, total: quizData.questions.length });
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  updateStoredProgress((progress) => {
+    progress.quizScores = progress.quizScores || [];
+    progress.quizScores.push({
+      date: new Date().toISOString(),
+      topic: currentTopic,
+      score: quizScore,
+      total: quizData.questions.length
+    });
+  });
+  renderStats();
 }
 
 // ========== PDF 내보내기 (html2pdf 사용) ==========
@@ -799,6 +1458,110 @@ async function exportPDF() {
   await html2pdf().set(opt).from(pdfContent).save();
 }
 
+function ensureExportable() {
+  if (!currentTopic || chatHistory.length < 2) {
+    alert('내보낼 학습 내용이 없습니다!');
+    return false;
+  }
+  return true;
+}
+
+// eslint-disable-next-line no-unused-vars -- called via onclick in dynamic HTML
+function showExportModal() {
+  if (!ensureExportable()) return;
+  toggleModal(exportModal, true);
+}
+
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildMarkdownSections() {
+  return chatHistory.map((msg) => {
+    const content = stripHtml(msg.content).trim();
+    return `## [${msg.label}]\n\n${content}`;
+  }).join('\n\n---\n\n');
+}
+
+// eslint-disable-next-line no-unused-vars -- called via modal button
+function exportMarkdown() {
+  if (!ensureExportable()) return;
+  const markdown = `# ${currentTopic}\n\n${buildMarkdownSections()}\n`;
+  downloadTextFile(`topdown-${normalizeFilename(currentTopic)}.md`, markdown);
+}
+
+// eslint-disable-next-line no-unused-vars -- called via modal button
+function exportObsidian() {
+  if (!ensureExportable()) return;
+  const safeTopic = stripHtml(currentTopic);
+  const date = new Date().toISOString().slice(0, 10);
+  const frontmatter = [
+    '---',
+    `title: "${safeTopic.replace(/"/g, '\\"')}"`,
+    `date: ${date}`,
+    'tags: [topdown, learner, study]',
+    `topic: "${safeTopic.replace(/"/g, '\\"')}"`,
+    '---',
+    ''
+  ].join('\n');
+  const body = `${frontmatter}# [[${safeTopic}]]\n\n${buildMarkdownSections()}\n`;
+  downloadTextFile(`obsidian-${normalizeFilename(safeTopic)}.md`, body);
+}
+
+function updateShareLinks(url) {
+  if (!shareUrlInput) return;
+  shareUrlInput.value = url;
+  const encodedUrl = encodeURIComponent(url);
+  const text = encodeURIComponent(`${currentTopic} 학습 노트 공유`);
+  shareXLink.href = `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${text}`;
+  shareLinkedInLink.href = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+}
+
+async function copyShareLink() {
+  if (!shareUrlInput?.value) return;
+  try {
+    await navigator.clipboard.writeText(shareUrlInput.value);
+    copyShareBtn.textContent = '복사됨!';
+    setTimeout(() => { copyShareBtn.textContent = '링크 복사'; }, 1200);
+  } catch {
+    shareUrlInput.select();
+    document.execCommand('copy');
+  }
+}
+
+// eslint-disable-next-line no-unused-vars -- called via onclick in dynamic HTML
+async function shareLearning() {
+  if (!ensureExportable()) return;
+  try {
+    const response = await fetch('/api/share', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Pin': accessPin
+      },
+      body: JSON.stringify({
+        topic: currentTopic,
+        mode: currentMode,
+        chatHistory
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '공유 링크 생성에 실패했습니다');
+    updateShareLinks(data.url);
+    toggleModal(shareModal, true);
+  } catch (error) {
+    alert(`공유 실패: ${error.message}`);
+  }
+}
+
 // 액션 버튼 표시
 function showActionButtons() {
   const existing = document.getElementById('actionButtons');
@@ -807,7 +1570,8 @@ function showActionButtons() {
   const btnsHtml = `
     <div class="action-buttons" id="actionButtons">
       <button class="action-btn" onclick="startQuiz()">퀴즈 풀기</button>
-      <button class="action-btn" onclick="exportPDF()">PDF 저장</button>
+      <button class="action-btn" onclick="showExportModal()">내보내기</button>
+      <button class="action-btn" onclick="shareLearning()">공유</button>
       <button class="action-btn" onclick="clearProgress(); location.reload();">진도 초기화</button>
     </div>
   `;
@@ -881,6 +1645,7 @@ async function startVerification() {
 
     currentTopic = `검증: ${agentName}`;
     chatHistory = [];
+    recordLearningSession(currentTopic, 'verify');
 
     // 진행률 바
     updateProgressBar(agentName, data.step, 7);
@@ -952,17 +1717,23 @@ async function sendVerifyMessage() {
 nextStepBtn.addEventListener('click', goToNextStep);
 
 async function goToNextStep() {
+  const currentStep = Number(currentStepEl.textContent || '1');
+  await goToStep(currentStep + 1);
+}
+
+async function goToStep(step) {
+  if (step < 1 || step > 7) return;
   nextStepBtn.style.display = 'none';
-  addLoadingMessage('다음 단계로 이동 중...');
+  addLoadingMessage(`${step}단계로 이동 중...`);
 
   try {
-    const response = await fetch('/api/verify-next', {
+    const response = await fetch('/api/verify-step', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Access-Pin': accessPin
       },
-      body: JSON.stringify({ sessionId })
+      body: JSON.stringify({ sessionId, step })
     });
 
     const data = await response.json();
@@ -1006,7 +1777,8 @@ function displayVerifySteps(currentStep) {
 function showVerifyActionButtons() {
   const btnsHtml = `
     <div class="action-buttons" id="actionButtons">
-      <button class="action-btn" onclick="exportPDF()">PDF 저장</button>
+      <button class="action-btn" onclick="showExportModal()">내보내기</button>
+      <button class="action-btn" onclick="shareLearning()">공유</button>
       <button class="action-btn" onclick="location.reload();">새 검증 시작</button>
     </div>
   `;
@@ -1211,6 +1983,9 @@ async function startWeek(curriculumId, weekNumber) {
 
     currentTopic = data.firstPrinciple ? `커리큘럼 ${weekNumber}주차` : '';
     chatHistory = [];
+    if (currentTopic) {
+      recordLearningSession(currentTopic, 'curriculum');
+    }
 
     updateProgressBar(`${weekNumber}주차`, 1, 4);
 
@@ -1224,6 +1999,8 @@ async function startWeek(curriculumId, weekNumber) {
         <button class="action-btn" onclick="completeWeek(${curriculumId}, ${weekNumber})">이 주차 완료</button>
         <button class="action-btn" onclick="showCurriculumDetail(${curriculumId})">커리큘럼으로 돌아가기</button>
         <button class="action-btn" onclick="startQuiz()">퀴즈 풀기</button>
+        <button class="action-btn" onclick="showExportModal()">내보내기</button>
+        <button class="action-btn" onclick="shareLearning()">공유</button>
       `;
       chatMessages.appendChild(btnsDiv);
     }, 500);
@@ -1280,8 +2057,6 @@ function backToCurriculumList() {
 }
 
 // 전송 버튼 - 모드에 따라 분기
-const originalSendClick = sendBtn.onclick;
-sendBtn.onclick = null;
 sendBtn.addEventListener('click', () => {
   if (verifyMode) {
     sendVerifyMessage();
@@ -1291,9 +2066,9 @@ sendBtn.addEventListener('click', () => {
 });
 
 // Enter 키 - 모드에 따라 분기
-chatInput.removeEventListener('keypress', () => {});
 chatInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
+    e.preventDefault();
     if (verifyMode) {
       sendVerifyMessage();
     } else {

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Top-Down Learner</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
   <!-- PIN 입력 모달 -->
@@ -27,6 +28,9 @@
     <header class="header">
       <h1>Top-Down Learner</h1>
       <p class="subtitle">소크라테스식 제1원리 학습</p>
+      <div class="header-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="다크/라이트 전환">☀︎</button>
+      </div>
       <div class="mode-selector" id="modeSelector">
         <button class="mode-btn active" data-mode="general">주제 학습</button>
         <button class="mode-btn" data-mode="code">코드 분석</button>
@@ -135,12 +139,26 @@
 
         <div class="chat-input-box" id="chatInputBox" style="display: none;">
           <input type="text" id="chatInput" placeholder="질문이나 답변을 입력하세요" />
+          <button id="voiceBtn" class="voice-btn" title="음성 입력">🎤</button>
           <button id="sendBtn">전송</button>
         </div>
       </div>
 
       <!-- 우측: 리소스 패널 -->
       <div class="resource-panel" id="resourcePanel">
+        <div class="resource-section stats-section" id="statsSection">
+          <h3>학습 대시보드</h3>
+          <div class="stats-cards" id="statsCards"></div>
+          <canvas id="quizTrendChart" class="stats-chart" height="140"></canvas>
+        </div>
+
+        <div class="resource-section">
+          <h3>북마크</h3>
+          <div id="bookmarkList" class="resource-list">
+            <p class="empty-state">북마크한 자료가 없습니다</p>
+          </div>
+        </div>
+
         <div class="resource-section">
           <h3>관련 영상</h3>
           <div id="videoList" class="resource-list">
@@ -163,6 +181,50 @@
     </div>
   </div>
 
+  <!-- 단축키 도움말 -->
+  <div id="shortcutHelp" class="shortcut-overlay" style="display: none;">
+    <div class="shortcut-content">
+      <h3>키보드 단축키</h3>
+      <ul class="shortcut-list">
+        <li><kbd>Ctrl</kbd> + <kbd>K</kbd> 입력창 포커스</li>
+        <li><kbd>Ctrl</kbd> + <kbd>1~4</kbd> 모드 전환</li>
+        <li><kbd>Ctrl</kbd> + <kbd>/</kbd> 도움말 토글</li>
+        <li><kbd>Alt</kbd> + <kbd>←</kbd>/<kbd>→</kbd> 검증 단계 이동</li>
+        <li><kbd>Esc</kbd> 열려 있는 모달 닫기</li>
+      </ul>
+      <button id="shortcutCloseBtn" class="switch-btn cancel">닫기</button>
+    </div>
+  </div>
+
+  <!-- 내보내기 모달 -->
+  <div id="exportModal" class="switch-modal" style="display: none;">
+    <div class="switch-modal-content export-modal-content">
+      <h3>노트 내보내기</h3>
+      <p>원하는 형식을 선택하세요.</p>
+      <div class="export-options">
+        <button id="exportPdfBtn" class="switch-btn confirm">PDF</button>
+        <button id="exportMdBtn" class="switch-btn confirm">Markdown</button>
+        <button id="exportObsidianBtn" class="switch-btn confirm">Obsidian</button>
+      </div>
+      <button id="exportCloseBtn" class="switch-btn cancel">닫기</button>
+    </div>
+  </div>
+
+  <!-- 공유 모달 -->
+  <div id="shareModal" class="switch-modal" style="display: none;">
+    <div class="switch-modal-content export-modal-content">
+      <h3>공유 링크 생성</h3>
+      <p>읽기 전용 링크를 복사하거나 소셜에 공유하세요.</p>
+      <input type="text" id="shareUrlInput" readonly class="share-url-input" />
+      <div class="share-actions">
+        <button id="copyShareBtn" class="switch-btn confirm">링크 복사</button>
+        <a id="shareXLink" target="_blank" rel="noopener noreferrer" class="switch-btn cancel">X 공유</a>
+        <a id="shareLinkedInLink" target="_blank" rel="noopener noreferrer" class="switch-btn cancel">LinkedIn 공유</a>
+      </div>
+      <button id="shareCloseBtn" class="switch-btn cancel">닫기</button>
+    </div>
+  </div>
+
   <!-- 모드 전환 경고 모달 -->
   <div id="switchModal" class="switch-modal" style="display: none;">
     <div class="switch-modal-content">
@@ -176,7 +238,12 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

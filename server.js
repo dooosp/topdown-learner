@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const path = require('path');
 const { createServer, startServer } = require('server-base');
 const config = require('./config');
@@ -30,12 +31,17 @@ if (!ACCESS_PIN) {
 }
 
 function checkAuth(req, res, next) {
-  const pin = req.headers['x-access-pin'] || req.body.pin;
+  const pin = req.headers['x-access-pin'] || req.body?.pin;
   if (pin !== ACCESS_PIN) {
     return res.status(401).json({ error: '잘못된 비밀번호입니다' });
   }
   next();
 }
+
+// 읽기 전용 공유 페이지 (same UI, readonly mode)
+app.get('/shared/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 학습 시작 API
 app.post('/api/learn', checkAuth, async (req, res) => {
@@ -234,6 +240,43 @@ app.post('/api/quiz', checkAuth, async (req, res) => {
   }
 });
 
+// 공유 링크 생성
+app.post('/api/share', checkAuth, (req, res) => {
+  const { topic, mode, chatHistory } = req.body;
+  if (!topic || !Array.isArray(chatHistory) || chatHistory.length === 0) {
+    return res.status(400).json({ error: '공유할 학습 내용이 없습니다' });
+  }
+
+  try {
+    const shareId = crypto.randomBytes(6).toString('hex');
+    store.createSharedSession(shareId, topic, mode, chatHistory);
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      success: true,
+      shareId,
+      url: `${baseUrl}/shared/${shareId}`
+    });
+  } catch (error) {
+    console.error('공유 링크 생성 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 공유 세션 조회 (읽기 전용)
+app.get('/api/shared/:id', (req, res) => {
+  try {
+    const shared = store.getSharedSessionById(req.params.id);
+    if (!shared) {
+      return res.status(404).json({ error: '공유 노트를 찾을 수 없습니다' });
+    }
+    res.json({ success: true, shared });
+  } catch (error) {
+    console.error('공유 세션 조회 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================
 // 에이전트 검증 학습 API (7단계 프레임워크)
 // ============================================
@@ -332,6 +375,33 @@ app.post('/api/verify-next', checkAuth, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('다음 단계 오류:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 특정 검증 단계로 이동 (단축키 Alt+←/→ 지원)
+app.post('/api/verify-step', checkAuth, async (req, res) => {
+  const { sessionId, step } = req.body;
+  const targetStep = Number(step);
+
+  if (!Number.isInteger(targetStep) || targetStep < 1 || targetStep > 7) {
+    return res.status(400).json({ error: '유효한 단계(1~7)를 입력해주세요' });
+  }
+
+  const session = sessions.get(sessionId);
+  if (!session || session.mode !== 'verify') {
+    return res.status(400).json({ error: '검증 세션이 없습니다' });
+  }
+
+  try {
+    const result = await verifier.nextStep(session.agent, targetStep, session.history);
+    if (!result.isComplete) {
+      session.currentStep = targetStep;
+      session.history.push({ role: 'model', content: result.response });
+    }
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('검증 단계 이동 오류:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -1,3 +1,55 @@
+:root {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --surface-0: rgba(255, 255, 255, 0.03);
+  --surface-1: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --surface-3: rgba(255, 255, 255, 0.15);
+  --border-soft: rgba(255, 255, 255, 0.2);
+  --accent: #667eea;
+  --accent-2: #764ba2;
+  --accent-soft: rgba(102, 126, 234, 0.18);
+  --accent-border: rgba(102, 126, 234, 0.4);
+  --success: #2ecc71;
+  --success-2: #27ae60;
+  --warning: #f1c40f;
+  --danger: #e74c3c;
+  --danger-soft: #ff6b6b;
+  --text-primary: #eee;
+  --text-secondary: #ccc;
+  --text-muted: #888;
+  --text-subtle: #666;
+  --text-strong: #fff;
+  --modal-bg: rgba(30, 30, 55, 0.95);
+  --overlay-bg: rgba(0, 0, 0, 0.72);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f6f8ff;
+  --bg-secondary: #e7ecff;
+  --surface-0: rgba(17, 24, 39, 0.02);
+  --surface-1: rgba(17, 24, 39, 0.05);
+  --surface-2: rgba(17, 24, 39, 0.1);
+  --surface-3: rgba(17, 24, 39, 0.14);
+  --border-soft: rgba(17, 24, 39, 0.18);
+  --accent: #4058c9;
+  --accent-2: #5e3aa1;
+  --accent-soft: rgba(64, 88, 201, 0.16);
+  --accent-border: rgba(64, 88, 201, 0.35);
+  --success: #1f9d57;
+  --success-2: #157347;
+  --warning: #b88200;
+  --danger: #c0392b;
+  --danger-soft: #d35454;
+  --text-primary: #1f2937;
+  --text-secondary: #374151;
+  --text-muted: #4b5563;
+  --text-subtle: #6b7280;
+  --text-strong: #111827;
+  --modal-bg: rgba(255, 255, 255, 0.96);
+  --overlay-bg: rgba(15, 23, 42, 0.4);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -1421,4 +1473,362 @@ body {
 
 .switch-btn.cancel:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* ========== 테마/공통 확장 ========== */
+body {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  color: var(--text-primary);
+}
+
+.subtitle,
+.empty-state,
+.video-channel,
+.article-snippet,
+.week-number,
+.week-prereqs,
+.resume-date,
+.progress-text,
+.step-preview,
+.curriculum-meta,
+.pin-desc {
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.theme-toggle-btn {
+  min-width: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.chat-panel,
+.resource-section,
+.message.user,
+.video-card,
+.article-card,
+.quiz-section,
+.curriculum-card,
+.week-card,
+.mobile-tabs,
+.pin-content,
+.chat-input-box input,
+.search-box input,
+.search-box select,
+.switch-btn.cancel,
+#newStartBtn,
+.back-btn {
+  background: var(--surface-1);
+}
+
+.chat-panel,
+.resource-section,
+.search-box input,
+.search-box select,
+.chat-input-box input,
+.quiz-option,
+.back-btn,
+#newStartBtn,
+.switch-btn.cancel {
+  border-color: var(--border-soft);
+}
+
+.search-box input,
+.search-box select,
+.chat-input-box input,
+.pin-content input,
+.search-box input::placeholder,
+.chat-input-box input::placeholder,
+.message-content,
+.article-title,
+.video-title,
+.curriculum-topic,
+.week-title,
+.step-title,
+.summary-stat,
+.switch-modal-content p,
+.code-pattern-toggle,
+.pin-notice {
+  color: var(--text-primary);
+}
+
+.mode-btn,
+.topic-chip,
+.action-btn,
+.resource-section h3,
+.message-label,
+.step-indicator,
+.curriculum-detail-header h3,
+.pin-content h2 {
+  color: var(--accent);
+}
+
+.mode-btn {
+  border-color: var(--accent-border);
+}
+
+.mode-btn:hover,
+.topic-chip:hover,
+.action-btn:hover {
+  color: var(--text-strong);
+}
+
+.mode-btn.active,
+.search-box button,
+.chat-input-box button,
+#resumeBtn,
+.switch-btn.confirm,
+.week-btn.start,
+.pin-content button {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+}
+
+.mission-section,
+.resume-prompt {
+  background: linear-gradient(135deg, var(--accent-soft), rgba(118, 75, 162, 0.1));
+  border-color: var(--accent-border);
+}
+
+.progress-bar-container {
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  border-color: var(--accent-border);
+}
+
+.switch-modal,
+.pin-modal {
+  background: var(--overlay-bg);
+}
+
+.switch-modal-content {
+  background: var(--modal-bg);
+}
+
+.switch-modal-content h3,
+.shortcut-content h3 {
+  color: var(--accent);
+}
+
+[data-theme="light"] .mode-btn.active,
+[data-theme="light"] .search-box button,
+[data-theme="light"] .chat-input-box button,
+[data-theme="light"] #resumeBtn,
+[data-theme="light"] .switch-btn.confirm,
+[data-theme="light"] .week-btn.start,
+[data-theme="light"] .pin-content button,
+[data-theme="light"] .action-btn:hover,
+[data-theme="light"] .topic-chip:hover,
+[data-theme="light"] .mode-btn:hover {
+  color: #fff;
+}
+
+[data-theme="light"] .message.assistant {
+  background: rgba(64, 88, 201, 0.1);
+  border-left-color: var(--accent);
+}
+
+[data-theme="light"] .progress-bar-container {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* ========== 코드 블록/Prism ========== */
+.message-content pre,
+.mission-content pre,
+pre[class*="language-"] {
+  margin: 12px 0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: #1f2430 !important;
+}
+
+[data-theme="light"] .message-content pre,
+[data-theme="light"] .mission-content pre,
+[data-theme="light"] pre[class*="language-"] {
+  background: #f3f4f8 !important;
+}
+
+.message-content code,
+.mission-content code {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+:not(pre) > code {
+  background: var(--surface-2);
+  color: var(--accent);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+/* ========== 북마크/대시보드 ========== */
+.resource-card-wrap {
+  position: relative;
+}
+
+.bookmark-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #ffd166;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 2;
+}
+
+.bookmark-btn:hover {
+  transform: scale(1.08);
+}
+
+.bookmark-btn.active {
+  color: #ffbf00;
+}
+
+[data-theme="light"] .bookmark-btn {
+  background: rgba(17, 24, 39, 0.12);
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.stats-chart {
+  width: 100%;
+  max-height: 160px;
+}
+
+/* ========== 음성 입력 ========== */
+.voice-btn {
+  width: 48px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.voice-btn.recording {
+  color: #fff;
+  background: linear-gradient(135deg, var(--danger), #f17f7f);
+  animation: pulseRec 1.1s ease infinite;
+}
+
+@keyframes pulseRec {
+  0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+}
+
+/* ========== 단축키/내보내기/공유 모달 ========== */
+.shortcut-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: var(--overlay-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.shortcut-content {
+  width: min(92vw, 420px);
+  background: var(--modal-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.shortcut-list {
+  margin: 14px 0 18px;
+  padding-left: 20px;
+  color: var(--text-primary);
+  line-height: 1.8;
+}
+
+.shortcut-list kbd {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.export-modal-content .export-options {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.share-url-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.share-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.share-actions a {
+  text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .stats-cards {
+    grid-template-columns: 1fr;
+  }
 }
