@@ -396,8 +396,11 @@ app.post('/api/verify-step', checkAuth, async (req, res) => {
   try {
     const result = await verifier.nextStep(session.agent, targetStep, session.history);
     if (!result.isComplete) {
+      const isForward = targetStep > session.currentStep;
       session.currentStep = targetStep;
-      session.history.push({ role: 'model', content: result.response });
+      if (isForward) {
+        session.history.push({ role: 'model', content: result.response });
+      }
     }
     res.json({ success: true, ...result });
   } catch (error) {
@@ -565,6 +568,10 @@ app.get('/api/verify-steps', (req, res) => {
 if (process.env.VERCEL) {
   module.exports = app;
 } else {
+  const cleaned = store.cleanExpiredSharedSessions(30);
+  if (cleaned > 0) {
+    console.log(`[공유] 만료 세션 ${cleaned}개 정리`);
+  }
   startServer(app, config.port, { name: 'topdown-learner' });
 }
 

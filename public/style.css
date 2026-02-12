@@ -58,9 +58,9 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   min-height: 100vh;
-  color: #eee;
+  color: var(--text-primary);
 }
 
 .container {
@@ -1476,11 +1476,6 @@ body {
 }
 
 /* ========== 테마/공통 확장 ========== */
-body {
-  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-  color: var(--text-primary);
-}
-
 .subtitle,
 .empty-state,
 .video-channel,

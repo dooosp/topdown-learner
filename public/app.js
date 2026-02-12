@@ -1254,6 +1254,9 @@ async function loadSharedSession() {
 
 // 페이지 로드 시 진도 확인
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.mermaid?.initialize) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+  }
   initTheme();
   renderBookmarks();
   renderStats();
