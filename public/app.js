@@ -51,6 +51,85 @@ const useCodePatternsCheckbox = document.getElementById('useCodePatterns');
 let currentMode = 'general';
 let verifyMode = false;
 
+// 진행률 바 요소
+const progressBar = document.getElementById('progressBar');
+const progressTopic = document.getElementById('progressTopic');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+
+// 모바일 탭 요소
+const mobileTabs = document.getElementById('mobileTabs');
+const resourcePanel = document.getElementById('resourcePanel');
+const chatPanel = document.querySelector('.chat-panel');
+
+// 모드 전환 모달 요소
+const switchModal = document.getElementById('switchModal');
+const switchConfirmBtn = document.getElementById('switchConfirmBtn');
+const switchCancelBtn = document.getElementById('switchCancelBtn');
+let pendingModeSwitch = null; // { mode, target }
+
+// ========== 진행률 바 ==========
+function updateProgressBar(topic, step, total) {
+  progressBar.style.display = 'flex';
+  progressTopic.textContent = topic;
+  const percent = Math.round((step / total) * 100);
+  progressFill.style.width = percent + '%';
+  progressText.textContent = `${step}/${total}`;
+}
+
+function hideProgressBar() {
+  progressBar.style.display = 'none';
+}
+
+// ========== 모바일 탭 ==========
+mobileTabs.addEventListener('click', (e) => {
+  const tab = e.target.closest('.mobile-tab');
+  if (!tab) return;
+
+  const tabType = tab.dataset.tab;
+  mobileTabs.querySelectorAll('.mobile-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+
+  // 뱃지 제거
+  const badge = tab.querySelector('.tab-badge');
+  if (badge) badge.remove();
+
+  if (tabType === 'chat') {
+    chatPanel.classList.remove('hidden-mobile');
+    resourcePanel.classList.add('hidden-mobile');
+  } else {
+    chatPanel.classList.add('hidden-mobile');
+    resourcePanel.classList.remove('hidden-mobile');
+  }
+});
+
+function showResourceBadge() {
+  const resourceTab = mobileTabs.querySelector('[data-tab="resource"]');
+  if (!resourceTab || resourceTab.classList.contains('active')) return;
+  if (resourceTab.querySelector('.tab-badge')) return;
+  const badge = document.createElement('span');
+  badge.className = 'tab-badge';
+  resourceTab.appendChild(badge);
+}
+
+// ========== 모드 전환 경고 ==========
+switchConfirmBtn.addEventListener('click', () => {
+  switchModal.style.display = 'none';
+  if (pendingModeSwitch) {
+    executeModeSwitch(pendingModeSwitch.mode, pendingModeSwitch.target);
+    pendingModeSwitch = null;
+  }
+});
+
+switchCancelBtn.addEventListener('click', () => {
+  switchModal.style.display = 'none';
+  // 이전 모드 버튼으로 복원
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === currentMode);
+  });
+  pendingModeSwitch = null;
+});
+
 // PIN 검증
 if (accessPin) {
   pinModal.classList.add('hidden');
@@ -90,17 +169,36 @@ async function verifyPin() {
 }
 
 // 모드 전환
-modeSelector.addEventListener('click', async (e) => {
+modeSelector.addEventListener('click', (e) => {
   if (!e.target.classList.contains('mode-btn')) return;
 
   const mode = e.target.dataset.mode;
   if (mode === currentMode) return;
 
+  // 학습 중이면 경고 모달 표시
+  if (chatHistory.length > 0) {
+    pendingModeSwitch = { mode, target: e.target };
+    // 버튼 미리 시각적 전환 (취소 시 복원됨)
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    e.target.classList.add('active');
+    switchModal.style.display = 'flex';
+    return;
+  }
+
+  executeModeSwitch(mode, e.target);
+});
+
+async function executeModeSwitch(mode, targetBtn) {
   currentMode = mode;
+  chatHistory = [];
+  currentTopic = '';
 
   // 버튼 활성화 상태 변경
   document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-  e.target.classList.add('active');
+  targetBtn.classList.add('active');
+
+  // 진행률 바 숨기기
+  hideProgressBar();
 
   // UI 전환
   generalInput.style.display = 'none';
@@ -134,7 +232,7 @@ modeSelector.addEventListener('click', async (e) => {
     generalInput.style.display = 'flex';
     welcomeGeneral.style.display = 'block';
   }
-});
+}
 
 // 프로젝트 목록 로드
 async function loadProjects() {
@@ -189,12 +287,17 @@ async function startCodeLearning() {
     currentTopic = `코드: ${projectName}`;
     chatHistory = [];
 
+    updateProgressBar(projectName, 1, 3);
+
     addMessageWithSave('아키텍처 분석', data.analysis, 'assistant');
 
     setTimeout(() => {
       addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
+      updateProgressBar(projectName, 2, 3);
       showActionButtons();
     }, 500);
+
+    updateProgressBar(projectName, 3, 3);
 
     // 리소스 패널에 GitHub 링크 표시
     videoList.innerHTML = `<a href="${data.github}" target="_blank" class="article-card">
@@ -269,19 +372,26 @@ async function startLearning() {
     currentTopic = topic;
     chatHistory = [];
 
+    // 진행률 바: 원리추출(1) → 질문(2) → 자료(3) → 미션(4)
+    updateProgressBar(topic, 1, 4);
+
     // 메시지 표시 (저장 포함)
     addMessageWithSave('제1원리 (Big Picture)', data.firstPrinciple, 'assistant');
 
     setTimeout(() => {
       addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
+      updateProgressBar(topic, 2, 4);
       showActionButtons();
     }, 500);
 
     // 리소스 표시
     displayResources(data.resources);
+    updateProgressBar(topic, 3, 4);
+    showResourceBadge();
 
     // 미션 표시
     displayMission(data.mission);
+    updateProgressBar(topic, 4, 4);
 
     // 채팅 입력창 표시
     chatInputBox.style.display = 'flex';
@@ -476,6 +586,11 @@ function resumeLearning() {
   currentTopic = progress.topic;
   currentMode = progress.mode;
   chatHistory = progress.chatHistory || [];
+
+  // 진행률 바 복원
+  if (currentTopic) {
+    updateProgressBar(currentTopic, chatHistory.length, chatHistory.length);
+  }
 
   // 대화 복원
   chatHistory.forEach(msg => {
@@ -767,6 +882,9 @@ async function startVerification() {
     currentTopic = `검증: ${agentName}`;
     chatHistory = [];
 
+    // 진행률 바
+    updateProgressBar(agentName, data.step, 7);
+
     // 진행 표시 업데이트
     verifyProgress.style.display = 'flex';
     updateStepIndicator(data.step, data.title);
@@ -854,10 +972,12 @@ async function goToNextStep() {
 
     if (data.isComplete) {
       verifyProgress.innerHTML = '<span class="step-complete">검증 완료!</span>';
+      updateProgressBar(currentTopic.replace('검증: ', ''), 7, 7);
       addMessageWithSave('검증 완료', data.response, 'assistant');
       showVerifyActionButtons();
     } else {
       updateStepIndicator(data.step, data.title);
+      updateProgressBar(currentTopic.replace('검증: ', ''), data.step, 7);
       addMessageWithSave(`${data.step}단계: ${data.title}`, data.response, 'assistant');
       displayVerifySteps(data.step);
     }
@@ -1092,6 +1212,8 @@ async function startWeek(curriculumId, weekNumber) {
     currentTopic = data.firstPrinciple ? `커리큘럼 ${weekNumber}주차` : '';
     chatHistory = [];
 
+    updateProgressBar(`${weekNumber}주차`, 1, 4);
+
     addMessageWithSave('제1원리 (Big Picture)', data.firstPrinciple, 'assistant');
     setTimeout(() => {
       addMessageWithSave('소크라테스의 질문', data.question, 'assistant');
@@ -1107,7 +1229,10 @@ async function startWeek(curriculumId, weekNumber) {
     }, 500);
 
     displayResources(data.resources);
+    updateProgressBar(`${weekNumber}주차`, 3, 4);
+    showResourceBadge();
     displayMission(data.mission);
+    updateProgressBar(`${weekNumber}주차`, 4, 4);
 
     chatInputBox.style.display = 'flex';
     chatInput.focus();

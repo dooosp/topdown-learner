@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const { createServer, startServer } = require('server-base');
 const config = require('./config');
 
 // 에이전트들
@@ -15,9 +16,7 @@ const curriculumComposer = require('./agents/curriculum-composer');
 const store = require('./lib/store');
 const agentsList = require('./data/agents.json');
 
-const app = express();
-
-app.use(express.json());
+const app = createServer({ name: 'topdown-learner' });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 세션 저장 (간단한 인메모리)
@@ -496,14 +495,7 @@ app.get('/api/verify-steps', (req, res) => {
 if (process.env.VERCEL) {
   module.exports = app;
 } else {
-  app.listen(config.port, () => {
-    console.log(`
-╔═══════════════════════════════════════════════════╗
-║     🎓 Top-Down Learner 서버 시작                   ║
-║     http://localhost:${config.port}                        ║
-╚═══════════════════════════════════════════════════╝
-    `);
-  });
+  startServer(app, config.port, { name: 'topdown-learner' });
 }
 
 module.exports = app;

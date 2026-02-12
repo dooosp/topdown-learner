@@ -1234,3 +1234,191 @@ body {
     gap: 8px;
   }
 }
+
+/* ========== 진행률 바 ========== */
+.progress-bar-container {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.progress-topic {
+  font-size: 0.85rem;
+  color: #a8b4f0;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2, #2ecc71);
+  background-size: 200% 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  animation: progressShimmer 3s ease infinite;
+}
+
+@keyframes progressShimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* ========== 모바일 탭 네비게이션 ========== */
+.mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .mobile-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .mobile-tab {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 0.95rem;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .mobile-tab.active {
+    color: #fff;
+  }
+
+  .mobile-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20%;
+    width: 60%;
+    height: 3px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px 3px 0 0;
+  }
+
+  .mobile-tab .tab-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #e74c3c;
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .resource-panel.hidden-mobile {
+    display: none !important;
+  }
+
+  .chat-panel.hidden-mobile {
+    display: none !important;
+  }
+}
+
+/* ========== 모드 전환 경고 모달 ========== */
+.switch-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.switch-modal-content {
+  background: rgba(30, 30, 55, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 30px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  max-width: 360px;
+  width: 90%;
+}
+
+.switch-modal-content h3 {
+  color: #667eea;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.switch-modal-content p {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.switch-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.switch-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.switch-btn.confirm {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+
+.switch-btn.confirm:hover {
+  opacity: 0.9;
+}
+
+.switch-btn.cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.switch-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
