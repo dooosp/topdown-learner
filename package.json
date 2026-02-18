@@ -11,9 +11,9 @@
     "@google/generative-ai": "latest",
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.0.0",
-    "config-loader": "file:../shared-libs/config-loader",
+    "config-loader": "file:./shared-libs/config-loader",
     "express": "^4.18.0",
-    "server-base": "file:../shared-libs/server-base"
+    "server-base": "file:./shared-libs/server-base"
   },
   "devDependencies": {
     "eslint": "^9.39.2",

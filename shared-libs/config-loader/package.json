@@ -1,0 +1,6 @@
+{
+  "name": "config-loader",
+  "version": "1.0.0",
+  "description": "Shared .env loader with validation",
+  "main": "index.js"
+}
