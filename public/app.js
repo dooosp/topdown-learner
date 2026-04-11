@@ -381,18 +381,20 @@ async function verifyPin() {
   if (!pin) return;
 
   try {
-    const response = await fetch('/api/learn', {
+    const response = await fetch('/api/auth/verify', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'X-Access-Pin': pin
-      },
-      body: JSON.stringify({ topic: 'test', sessionId: 'verify' })
+      }
     });
 
     if (response.status === 401) {
       pinError.textContent = '잘못된 비밀번호입니다';
       return;
+    }
+
+    if (!response.ok) {
+      throw new Error('auth verification failed');
     }
 
     // 성공

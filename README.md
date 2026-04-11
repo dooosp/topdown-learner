@@ -39,7 +39,12 @@ Express server (:3000)
 ## Setup
 
 ```bash
-cp .env.example .env   # Add GEMINI_API_KEY
+cp .env.example .env   # Add GEMINI_API_KEY and ACCESS_PIN
 npm install
 npm start              # http://localhost:3000
 ```
+
+Required environment variables:
+
+- `GEMINI_API_KEY`
+- `ACCESS_PIN`

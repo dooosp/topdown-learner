@@ -38,6 +38,11 @@ function checkAuth(req, res, next) {
   next();
 }
 
+// PIN 인증 확인 전용 API
+app.post('/api/auth/verify', checkAuth, (req, res) => {
+  res.json({ success: true });
+});
+
 // 읽기 전용 공유 페이지 (same UI, readonly mode)
 app.get('/shared/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -147,7 +152,7 @@ app.post('/api/chat', checkAuth, async (req, res) => {
 });
 
 // 추가 자료 검색 API
-app.post('/api/search', async (req, res) => {
+app.post('/api/search', checkAuth, async (req, res) => {
   const { query } = req.body;
 
   try {
